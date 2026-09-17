@@ -1,0 +1,46 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv
+venv
+ENV
+env
+.env
+.env.local
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Testing
+.pytest_cache
+.coverage
+htmlcov
+.tox
+.nox
+
+# Data (will be mounted as volume)
+data/
+*.db
+
+# Documentation
+docs/_build
+
+# Build artifacts
+*.egg-info
+dist
+build
+
+# Misc
+*.log
+.DS_Store
+Thumbs.db

@@ -1,0 +1,68 @@
+[tool.poetry]
+name = "health-longevity-backend"
+version = "0.1.0"
+description = "个人健康长寿多智能体系统后端服务"
+authors = ["Health Lab Team"]
+readme = "README.md"
+packages = [{include = "app"}]
+
+[tool.poetry.dependencies]
+python = "^3.11,<3.14"
+# Web Framework
+fastapi = "^0.141.0"
+uvicorn = {extras = ["standard"], version = "^0.52.0"}
+# Data Validation
+pydantic = "^2.13.0"
+pydantic-settings = "^2.10.0"
+# Multi-Agent Orchestration
+langgraph = "^1.2.0"
+langchain-core = "^1.6.0"
+langchain-openai = "^1.6.0"
+# Knowledge Retrieval
+llama-index = "^0.14.0"
+llama-index-vector-stores-chroma = "^0.4.0"
+llama-index-graph-stores-neo4j = "^0.6.0"
+# Vector & Graph Databases
+chromadb = "^1.5.0"
+neo4j = "^5.28.0"
+# Async Support
+httpx = "^0.28.0"
+aiofiles = "^24.1.0"
+# Utilities
+python-dotenv = "^1.1.0"
+python-multipart = "^0.0.20"
+
+[tool.poetry.group.dev.dependencies]
+# Testing
+pytest = "^8.4.0"
+pytest-asyncio = "^1.0.0"
+pytest-cov = "^6.1.0"
+hypothesis = "^6.130.0"
+# Linting & Formatting
+ruff = "^0.15.0"
+mypy = "^1.15.0"
+# HTTP Client for Testing
+httpx = "^0.28.0"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+addopts = "-v --tb=short"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "UP", "B", "C4", "SIM"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+ignore_missing_imports = true
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
