@@ -1,5 +1,5 @@
 /**
- * 健康长寿多智能体系统 - TypeScript 类型定义
+ * 健康多智能体系统 - TypeScript 类型定义
  * 对应后端 Pydantic 模型和 API 接口
  */
 

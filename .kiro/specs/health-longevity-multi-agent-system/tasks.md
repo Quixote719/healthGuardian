@@ -1,4 +1,4 @@
-# Implementation Plan: 个人健康长寿多智能体系统
+# Implementation Plan: 个人健康多智能体系统
 
 ## Overview
 

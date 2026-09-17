@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "health-longevity-backend"
 version = "0.1.0"
-description = "个人健康长寿多智能体系统后端服务"
+description = "个人健康多智能体系统后端服务"
 authors = ["Health Lab Team"]
 readme = "README.md"
 packages = [{include = "app"}]

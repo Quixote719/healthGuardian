@@ -5,9 +5,9 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "健康长寿智能助手",
-  description: "个人健康长寿多智能体系统 - 您的智能健康主治医生",
-  keywords: ["健康", "长寿", "营养", "康复", "心理健康", "AI助手"],
+  title: "健康智能助手",
+  description: "个人健康多智能体系统 - 您的智能健康主治医生",
+  keywords: ["健康", "营养", "康复", "心理健康", "AI助手"],
 };
 
 export default function RootLayout({

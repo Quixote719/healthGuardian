@@ -75,7 +75,7 @@ class ControllerAgent(BaseAgent):
         Returns:
             str: 系统提示词文本
         """
-        return """你是健康长寿多智能体系统的主控智能体（Controller_Agent）。
+        return """你是健康多智能体系统的主控智能体（Controller_Agent）。
 
 你的职责是：
 1. 分析用户的健康咨询请求

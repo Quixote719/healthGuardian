@@ -1,5 +1,5 @@
-# 个人健康长寿多智能体系统 - Docker Compose 开发环境配置
-# Health Longevity Multi-Agent System - Docker Compose Development Configuration
+# 个人健康多智能体系统 - Docker Compose 开发环境配置
+# Health Multi-Agent System - Docker Compose Development Configuration
 
 version: '3.8'
 

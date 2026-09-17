@@ -1,5 +1,5 @@
-# 个人健康长寿多智能体系统 - 后端 Dockerfile
-# Health Longevity Multi-Agent System - Backend Dockerfile
+# 个人健康多智能体系统 - 后端 Dockerfile
+# Health Multi-Agent System - Backend Dockerfile
 
 FROM python:3.11-slim
 

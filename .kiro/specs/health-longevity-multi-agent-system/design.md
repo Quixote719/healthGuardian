@@ -2,7 +2,7 @@
 
 ## Overview
 
-个人健康长寿多智能体系统是一个基于 LangGraph 的多智能体编排系统，结合 LlamaIndex 知识检索能力，为用户提供跨学科的健康干预方案。系统采用前后端分离架构，后端使用 Python (FastAPI + LangGraph + LlamaIndex)，前端使用 Next.js + Vercel AI SDK 实现 Generative UI 和流式交互。
+个人健康多智能体系统是一个基于 LangGraph 的多智能体编排系统，结合 LlamaIndex 知识检索能力，为用户提供跨学科的健康干预方案。系统采用前后端分离架构，后端使用 Python (FastAPI + LangGraph + LlamaIndex)，前端使用 Next.js + Vercel AI SDK 实现 Generative UI 和流式交互。
 
 ### 核心技术栈
 

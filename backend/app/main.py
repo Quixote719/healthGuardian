@@ -1,6 +1,6 @@
 """
-个人健康长寿多智能体系统 - FastAPI 应用入口
-Health Longevity Multi-Agent System - FastAPI Application Entry Point
+个人健康多智能体系统 - FastAPI 应用入口
+Health Multi-Agent System - FastAPI Application Entry Point
 
 Requirements: 13.1, 14.11
 Design: Components and Interfaces - FastAPI 应用入口
@@ -42,7 +42,7 @@ async def lifespan(app: FastAPI):
 # 创建 FastAPI 应用实例
 app = FastAPI(
     title="Health Longevity Multi-Agent System",
-    description="个人健康长寿多智能体系统 - 基于 LangGraph 的多智能体编排系统，结合 LlamaIndex 知识检索能力",
+    description="个人健康多智能体系统 - 基于 LangGraph 的多智能体编排系统，结合 LlamaIndex 知识检索能力",
     version=__version__,
     lifespan=lifespan,
     docs_url="/docs",

@@ -1,5 +1,5 @@
-# 个人健康长寿多智能体系统 - 前端 Dockerfile
-# Health Longevity Multi-Agent System - Frontend Dockerfile
+# 个人健康多智能体系统 - 前端 Dockerfile
+# Health Multi-Agent System - Frontend Dockerfile
 
 FROM node:18-alpine
 
