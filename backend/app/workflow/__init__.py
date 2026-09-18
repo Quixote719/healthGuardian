@@ -6,6 +6,8 @@ LangGraph 工作流模块
 from app.workflow.graph import (
     # Module info
     LANGGRAPH_AVAILABLE,
+    # Agent instances
+    controller_agent,
     # Workflow creation
     create_health_workflow,
     create_parallel_health_workflow,
@@ -13,26 +15,23 @@ from app.workflow.graph import (
     # Compiled workflow factory
     get_compiled_workflow,
     get_persistent_workflow,
+    neuropsychology_agent,
+    nutrition_agent,
+    rehabilitation_agent,
+    resume_health_workflow,
     # Execution helpers
     run_health_workflow,
-    resume_health_workflow,
     # Routing functions
     should_interrupt_after_controller,
     should_interrupt_after_synthesis,
-    # Agent instances
-    controller_agent,
-    nutrition_agent,
-    rehabilitation_agent,
-    neuropsychology_agent,
     synthesis_agent,
 )
-
 from app.workflow.hitl import (
+    LANGGRAPH_CHECKPOINTER_AVAILABLE,
     # HITL Manager
     HITLManager,
     PausedSession,
     SessionStatus,
-    LANGGRAPH_CHECKPOINTER_AVAILABLE,
 )
 
 __all__ = [

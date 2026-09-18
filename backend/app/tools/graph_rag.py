@@ -10,7 +10,7 @@ Requirements: 12.1-12.7
 from __future__ import annotations
 
 import asyncio
-from typing import TYPE_CHECKING, Any, List, Optional
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, Field
 
@@ -62,8 +62,8 @@ class GraphRAGResult(BaseModel):
         raw_response: 原始响应文本
     """
 
-    entities: List[EntityInfo] = Field(default_factory=list, description="实体列表")
-    relations: List[RelationInfo] = Field(default_factory=list, description="关系列表")
+    entities: list[EntityInfo] = Field(default_factory=list, description="实体列表")
+    relations: list[RelationInfo] = Field(default_factory=list, description="关系列表")
     raw_response: str = Field(default="", description="原始响应文本")
 
 
@@ -116,8 +116,8 @@ class GraphRAG(RAGInterface):
         self.max_triplets_per_chunk = max_triplets_per_chunk
 
         # 延迟初始化
-        self._graph_store: Optional[Neo4jGraphStore] = None
-        self._index: Optional[KnowledgeGraphIndex] = None
+        self._graph_store: Neo4jGraphStore | None = None
+        self._index: KnowledgeGraphIndex | None = None
         self._initialized = False
 
     def _lazy_init(self) -> None:
@@ -136,8 +136,7 @@ class GraphRAG(RAGInterface):
             from llama_index.graph_stores.neo4j import Neo4jGraphStore
         except ImportError as e:
             raise ImportError(
-                "请安装 llama-index-graph-stores-neo4j: "
-                "pip install llama-index-graph-stores-neo4j"
+                "请安装 llama-index-graph-stores-neo4j: pip install llama-index-graph-stores-neo4j"
             ) from e
 
         try:
@@ -155,7 +154,7 @@ class GraphRAG(RAGInterface):
             ) from e
 
     @property
-    def graph_store(self) -> Optional[Neo4jGraphStore]:
+    def graph_store(self) -> Neo4jGraphStore | None:
         """获取图存储实例"""
         return self._graph_store
 
@@ -166,7 +165,7 @@ class GraphRAG(RAGInterface):
         self._initialized = True
 
     @property
-    def index(self) -> Optional[KnowledgeGraphIndex]:
+    def index(self) -> KnowledgeGraphIndex | None:
         """获取知识图谱索引"""
         return self._index
 
@@ -175,7 +174,7 @@ class GraphRAG(RAGInterface):
         """设置索引（用于测试注入）"""
         self._index = value
 
-    async def build_index(self, documents: List[Document]) -> None:
+    async def build_index(self, documents: list[Document]) -> None:
         """构建知识图谱索引
 
         从文档中提取实体和关系，构建知识图谱索引。
@@ -192,9 +191,7 @@ class GraphRAG(RAGInterface):
         try:
             from llama_index.core import KnowledgeGraphIndex
         except ImportError as e:
-            raise ImportError(
-                "请安装 llama-index: pip install llama-index"
-            ) from e
+            raise ImportError("请安装 llama-index: pip install llama-index") from e
 
         if not documents:
             self._index = None
@@ -224,7 +221,7 @@ class GraphRAG(RAGInterface):
         top_k: int = 5,
         similarity_threshold: float = 0.7,
         max_hops: int = 3,
-    ) -> List[RAGResult]:
+    ) -> list[RAGResult]:
         """执行图谱检索查询
 
         支持多跳关系查询，返回相关实体和关系信息。
@@ -279,12 +276,10 @@ class GraphRAG(RAGInterface):
                     except TypeError:
                         # 如果 aquery 不是真正的协程，回退到同步方法
                         pass
-                
+
                 # 在线程池中执行同步方法
                 loop = asyncio.get_event_loop()
-                return await loop.run_in_executor(
-                    None, query_engine.query, query_text
-                )
+                return await loop.run_in_executor(None, query_engine.query, query_text)
 
             response = await asyncio.wait_for(
                 execute_query(),
@@ -292,8 +287,8 @@ class GraphRAG(RAGInterface):
             )
 
             # 解析图谱结果，提取实体和关系
-            entities: List[EntityInfo] = []
-            relations: List[RelationInfo] = []
+            entities: list[EntityInfo] = []
+            relations: list[RelationInfo] = []
 
             # 从响应的 source_nodes 中提取结构化信息
             if hasattr(response, "source_nodes"):
@@ -330,12 +325,8 @@ class GraphRAG(RAGInterface):
                         triplet = node_metadata["triplet"]
                         if isinstance(triplet, (list, tuple)) and len(triplet) >= 3:
                             source, relation, target = triplet[0], triplet[1], triplet[2]
-                            entities.append(
-                                EntityInfo(name=source, type="extracted")
-                            )
-                            entities.append(
-                                EntityInfo(name=target, type="extracted")
-                            )
+                            entities.append(EntityInfo(name=source, type="extracted"))
+                            entities.append(EntityInfo(name=target, type="extracted"))
                             relations.append(
                                 RelationInfo(
                                     source_entity=source,
@@ -346,7 +337,7 @@ class GraphRAG(RAGInterface):
 
             # 去重实体
             seen_entities: set[str] = set()
-            unique_entities: List[EntityInfo] = []
+            unique_entities: list[EntityInfo] = []
             for entity in entities:
                 if entity.name not in seen_entities:
                     seen_entities.add(entity.name)
@@ -354,7 +345,7 @@ class GraphRAG(RAGInterface):
 
             # 去重关系
             seen_relations: set[tuple[str, str, str]] = set()
-            unique_relations: List[RelationInfo] = []
+            unique_relations: list[RelationInfo] = []
             for rel in relations:
                 key = (rel.source_entity, rel.target_entity, rel.relation_type)
                 if key not in seen_relations:
@@ -382,7 +373,7 @@ class GraphRAG(RAGInterface):
                 )
             ]
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             # 超时错误处理 (Requirement 12.6, 12.7)
             return [
                 RAGResult(

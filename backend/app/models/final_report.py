@@ -6,7 +6,6 @@ Requirements 3.1-3.8: 定义综合报告数据结构
 
 from datetime import datetime
 from enum import Enum
-from typing import List
 
 from pydantic import BaseModel, Field
 
@@ -39,13 +38,11 @@ class FinalReport(BaseModel):
     """
 
     deep_insight: str = Field(..., description="底层心身一体病理分析")
-    action_plan: List[ActionItem] = Field(
+    action_plan: list[ActionItem] = Field(
         default_factory=list, max_length=50, description="干预措施列表（最多50项）"
     )
     follow_up: str = Field(..., description="随访计划信息，包含复查时间和关注指标")
-    requires_confirmation: bool = Field(
-        default=False, description="是否需要用户确认高风险干预"
-    )
+    requires_confirmation: bool = Field(default=False, description="是否需要用户确认高风险干预")
     created_at: datetime = Field(
         default_factory=lambda: datetime.utcnow(), description="报告生成时间(UTC)"
     )

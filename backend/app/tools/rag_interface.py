@@ -8,7 +8,7 @@ Requirements: 11.3, 12.3
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, List
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -25,9 +25,7 @@ class RAGResult(BaseModel):
 
     content: str = Field(..., description="检索到的文本内容")
     source: str = Field(..., description="内容来源标识")
-    similarity_score: float = Field(
-        ..., ge=0.0, le=1.0, description="相似度分数，范围 0.0-1.0"
-    )
+    similarity_score: float = Field(..., ge=0.0, le=1.0, description="相似度分数，范围 0.0-1.0")
     metadata: dict[str, Any] = Field(default_factory=dict, description="附加元数据")
 
 
@@ -44,7 +42,7 @@ class RAGInterface(ABC):
         query_text: str,
         top_k: int = 5,
         similarity_threshold: float = 0.7,
-    ) -> List[RAGResult]:
+    ) -> list[RAGResult]:
         """执行检索查询
 
         Args:

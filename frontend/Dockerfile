@@ -6,14 +6,14 @@ FROM node:18-alpine
 # 设置工作目录
 WORKDIR /app
 
-# 安装 pnpm (可选，如果项目使用 pnpm)
-# RUN npm install -g pnpm
+# 安装 pnpm
+RUN corepack enable && corepack prepare pnpm@latest --activate
 
 # 复制依赖文件
-COPY package.json package-lock.json* ./
+COPY package.json pnpm-lock.yaml* ./
 
 # 安装依赖
-RUN npm ci
+RUN pnpm install --frozen-lockfile
 
 # 复制应用代码
 COPY . .
@@ -26,8 +26,8 @@ ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 EXPOSE 3000
 
 # 开发模式启动命令
-CMD ["npm", "run", "dev"]
+CMD ["pnpm", "dev"]
 
 # 生产模式使用以下命令 (需要先构建)
-# RUN npm run build
-# CMD ["npm", "run", "start"]
+# RUN pnpm build
+# CMD ["pnpm", "start"]

@@ -11,7 +11,7 @@ Design Reference: LangGraph 工作流设计 - Rehabilitation_Agent 节点
 
 import asyncio
 import json
-from typing import List, Optional
+from datetime import UTC
 
 from app.agents.base import BaseAgent
 from app.agents.health_analyzer import (
@@ -25,9 +25,8 @@ from app.agents.health_analyzer import (
 from app.models.action_item import ActionCategory, ActionItem, Priority, RiskLevel
 from app.models.state import HealthState, NodeExecutionStatus
 from app.models.user_profile import MedicalHistory
-from app.tools.markdown_rag import MarkdownRAG, create_rehabilitation_rag
 from app.services.llm import get_llm_service
-
+from app.tools.markdown_rag import MarkdownRAG, create_rehabilitation_rag
 
 # 基于年龄-强度和BMI调整的内置运动建议
 EXERCISE_RECOMMENDATIONS = {
@@ -160,9 +159,9 @@ BMI_ADJUSTMENT_NOTES = {
 
 class RehabilitationAgent(BaseAgent):
     """运动康复专家智能体
-    
+
     负责根据用户健康画像生成个性化的运动康复建议。
-    
+
     功能:
     - 调用 Markdown_RAG 检索运动康复知识库 (Requirement 7.1)
     - 根据年龄匹配运动强度 (Requirement 7.2)
@@ -170,31 +169,31 @@ class RehabilitationAgent(BaseAgent):
     - 输出 3-5 个 Action_Item (Requirement 7.4)
     - 将结果写入 expert_responses (Requirement 7.5)
     - 根据禁忌病史排除运动类型 (Requirement 7.6)
-    
+
     Attributes:
         _rag: MarkdownRAG 实例，用于检索运动康复知识库
         _rag_timeout: RAG 查询超时时间（秒）
     """
-    
+
     def __init__(
         self,
-        rag: Optional[MarkdownRAG] = None,
+        rag: MarkdownRAG | None = None,
         rag_timeout: float = 10.0,
     ) -> None:
         """初始化运动康复专家智能体
-        
+
         Args:
             rag: MarkdownRAG 实例，如果未提供则创建默认实例
             rag_timeout: RAG 查询超时时间（秒），默认 10 秒
         """
         self._rag = rag or create_rehabilitation_rag()
         self._rag_timeout = rag_timeout
-    
+
     @property
     def name(self) -> str:
         """智能体名称"""
         return "Rehabilitation_Agent"
-    
+
     def get_system_prompt(self) -> str:
         """获取系统提示词"""
         return """你是一位专业的运动康复专家，拥有运动科学、物理治疗和康复医学背景。
@@ -211,19 +210,19 @@ class RehabilitationAgent(BaseAgent):
 - 每个措施包含清晰的执行说明和频率
 - 标注运动的风险等级
 - 考虑可能的运动禁忌"""
-    
+
     async def process(self, state: HealthState) -> HealthState:
         """处理状态并返回更新后的状态
-        
+
         根据用户健康画像和查询生成运动康复建议。
-        如果没有用户画像，则只根据用户查询生成通用建议。
-        
+        LLM 返回结构化 JSON，直接驱动 action_items 生成。
+
         Args:
             state: 当前的 HealthState
-        
+
         Returns:
             更新后的 HealthState
-        
+
         Requirements: 7.1-7.6
         """
         # 初始化 expert_responses 和 node_execution_status
@@ -233,44 +232,46 @@ class RehabilitationAgent(BaseAgent):
             state["node_execution_status"] = {}
         if "error_info" not in state:
             state["error_info"] = []
-        
+
         # 更新节点状态为运行中
         state["node_execution_status"][self.name] = NodeExecutionStatus.RUNNING
-        
+
         try:
             # 获取用户查询
             user_query = state.get("user_query", "")
-            
+
             # 获取用户画像（可能为 None）
             user_profile = state.get("user_profile")
-            
+
             # 如果有用户画像，进行个性化分析
             age_intensity = None
             bmi_adjustment = None
             final_intensity = None
             contraindication_result = None
-            rag_results: List[str] = []
-            
+            rag_results: list[str] = []
+            deep_insight = ""
+            action_items: list[ActionItem] = []
+
             if user_profile is not None:
                 # 提取关键信息
                 age = user_profile.age
                 bmi = user_profile.bmi
-                medical_history: List[MedicalHistory] = user_profile.medical_history
-                
+                medical_history: list[MedicalHistory] = user_profile.medical_history
+
                 # 1. 根据年龄获取推荐运动强度 (Requirement 7.2)
                 age_intensity = get_exercise_intensity_by_age(age)
-                
+
                 # 2. 根据 BMI 获取强度调整建议 (Requirement 7.3)
                 bmi_adjustment = get_intensity_adjustment_by_bmi(bmi=bmi)
-                
+
                 # 3. 检查禁忌病史 (Requirement 7.6)
                 contraindication_result = check_medical_contraindications(medical_history)
-                
+
                 # 4. 尝试调用 RAG 检索知识库 (Requirement 7.1)
                 rag_results = await self._query_rag_with_timeout(
                     user_profile, age_intensity, contraindication_result
                 )
-                
+
                 # 5. 综合各因素调整最终运动强度
                 final_intensity = self._adjust_intensity(age_intensity, bmi_adjustment)
             else:
@@ -288,9 +289,9 @@ class RehabilitationAgent(BaseAgent):
                         rag_results = [r.content for r in results]
                     except Exception:
                         rag_results = []
-            
+
             rag_content = "\n\n".join(rag_results) if rag_results else ""
-            
+
             # 6. 构建用户健康上下文
             if user_profile is not None:
                 user_context = self._build_user_context(
@@ -302,92 +303,111 @@ class RehabilitationAgent(BaseAgent):
                 )
             else:
                 user_context = "（用户未提供个人健康档案，请提供通用运动建议）"
-            
-            # 7. 调用 LLM 生成个性化建议
-            llm_response = ""
+
+            # 7. 调用 LLM 生成结构化建议（核心改动：LLM 驱动 action_items）
             if user_query:
                 try:
                     llm_service = get_llm_service()
-                    llm_response = await llm_service.generate_health_advice(
+                    llm_result = await llm_service.generate_structured_advice(
+                        agent_type="rehabilitation",
                         system_prompt=self.get_system_prompt(),
                         user_query=user_query,
                         user_context=user_context,
                         rag_knowledge=rag_content,
                     )
+
+                    # 提取 deep_insight
+                    deep_insight = llm_result.get("deep_insight", "")
+
+                    # 解析 LLM 返回的 action_items
+                    for item_data in llm_result.get("action_items", []):
+                        try:
+                            # 确保 category 是康复
+                            item_data["category"] = "康复"
+                            action_items.append(ActionItem(**item_data))
+                        except Exception:
+                            # 跳过无效的 action item
+                            continue
+
                 except Exception as e:
-                    # LLM 调用失败
-                    llm_response = f"抱歉，服务暂时不可用，请稍后重试。（错误：{type(e).__name__}）"
-            
-            # 8. 生成 Action_Item 列表 (Requirement 7.4)
-            if user_profile is not None and final_intensity is not None:
-                action_items = self._generate_action_items(
-                    final_intensity=final_intensity,
-                    bmi_adjustment=bmi_adjustment,
-                    contraindication_result=contraindication_result,
-                    rag_results=rag_results,
-                    user_profile=user_profile,
-                )
-            else:
-                # 没有用户画像时，返回通用的安全运动建议
-                action_items = self._get_safe_fallback_recommendations(set(), [])[:3]
-            
+                    # LLM 调用失败，直接返回错误状态
+                    error_response = {
+                        "has_user_profile": user_profile is not None,
+                        "error": True,
+                        "error_type": type(e).__name__,
+                        "error_message": f"LLM 服务不可用：{type(e).__name__}",
+                        "action_items": [],
+                    }
+                    state["expert_responses"]["rehabilitation"] = json.dumps(
+                        error_response, ensure_ascii=False
+                    )
+                    state["node_execution_status"][self.name] = NodeExecutionStatus.FAILED
+                    return state
+
+            # 限制最多 5 个
+            action_items = action_items[:5]
+
             # 9. 构建响应内容
+            response_data = {
+                "has_user_profile": user_profile is not None,
+                "deep_insight": deep_insight,
+                "rag_used": len(rag_results) > 0,
+                "action_items": [item.model_dump() for item in action_items],
+            }
+
             if user_profile is not None:
-                response = self._build_response(
-                    action_items=action_items,
-                    age=user_profile.age,
-                    age_intensity=age_intensity,
-                    bmi=user_profile.bmi,
-                    bmi_adjustment=bmi_adjustment,
-                    final_intensity=final_intensity,
-                    contraindication_result=contraindication_result,
-                    rag_used=len(rag_results) > 0,
-                    llm_response=llm_response,
+                response_data.update(
+                    {
+                        "age": user_profile.age,
+                        "age_intensity": age_intensity.value if age_intensity else None,
+                        "bmi": user_profile.bmi,
+                        "bmi_adjustment": bmi_adjustment.value if bmi_adjustment else None,
+                        "final_intensity": final_intensity.value if final_intensity else None,
+                        "has_contraindications": contraindication_result.has_contraindications
+                        if contraindication_result
+                        else False,
+                    }
                 )
-            else:
-                # 构建无用户画像时的响应
-                response = self._build_generic_response(
-                    action_items=action_items,
-                    llm_response=llm_response,
-                    rag_used=len(rag_results) > 0,
-                )
-            
+
             # 10. 写入 expert_responses (Requirement 7.5)
-            state["expert_responses"]["rehabilitation"] = response
+            state["expert_responses"]["rehabilitation"] = json.dumps(
+                response_data, ensure_ascii=False
+            )
             state["node_execution_status"][self.name] = NodeExecutionStatus.COMPLETED
-            
+
         except Exception as e:
             # 记录错误信息
-            from datetime import datetime, timezone
+            from datetime import datetime
+
             from app.models.state import ErrorInfo
-            
+
             error = ErrorInfo(
                 node_name=self.name,
                 error_type=type(e).__name__,
                 error_message=str(e)[:1000],
-                timestamp=datetime.now(timezone.utc),
+                timestamp=datetime.now(UTC),
             )
             state["error_info"].append(error)
             state["node_execution_status"][self.name] = NodeExecutionStatus.FAILED
-            
+
             # 即使出错也尝试返回基础建议
             state["expert_responses"]["rehabilitation"] = self._generate_fallback_response()
-        
+
         return state
-    
+
     def _build_generic_response(
         self,
-        action_items: List[ActionItem],
+        action_items: list[ActionItem],
         llm_response: str,
         rag_used: bool,
     ) -> str:
         """构建无用户画像时的通用响应
-        
+
         Args:
             action_items: 生成的 Action_Item 列表
             llm_response: LLM 生成的建议
             rag_used: 是否使用了 RAG 检索
-        
+
         Returns:
             格式化的响应字符串
         """
@@ -395,42 +415,50 @@ class RehabilitationAgent(BaseAgent):
             "## 运动康复建议",
             "",
         ]
-        
+
         # 添加 LLM 生成的建议（如果有）
         if llm_response:
-            response_parts.extend([
-                "### 针对您问题的建议",
-                "",
-                llm_response,
-                "",
-            ])
-        
+            response_parts.extend(
+                [
+                    "### 针对您问题的建议",
+                    "",
+                    llm_response,
+                    "",
+                ]
+            )
+
         if not rag_used:
-            response_parts.extend([
-                "> 注：本建议基于通用运动康复知识生成。如需获得个性化建议，请提供您的健康档案信息。",
-                "",
-            ])
-        
+            response_parts.extend(
+                [
+                    "> 注：本建议基于通用运动康复知识生成。如需获得个性化建议，请提供您的健康档案信息。",
+                    "",
+                ]
+            )
+
         # 添加运动建议
-        response_parts.extend([
-            "### 通用运动建议",
-            "",
-        ])
-        
+        response_parts.extend(
+            [
+                "### 通用运动建议",
+                "",
+            ]
+        )
+
         for i, item in enumerate(action_items, 1):
-            response_parts.extend([
-                f"#### {i}. {item.title}",
-                "",
-                f"**说明**: {item.description}",
-                "",
-                f"**频率**: {item.frequency}",
-                "",
-                f"**持续时间**: {item.duration}",
-                "",
-            ])
-        
+            response_parts.extend(
+                [
+                    f"#### {i}. {item.title}",
+                    "",
+                    f"**说明**: {item.description}",
+                    "",
+                    f"**频率**: {item.frequency}",
+                    "",
+                    f"**持续时间**: {item.duration}",
+                    "",
+                ]
+            )
+
         return "\n".join(response_parts)
-    
+
     def _build_user_context(
         self,
         user_profile,
@@ -440,84 +468,86 @@ class RehabilitationAgent(BaseAgent):
         contraindication_result: ContraindicationResult,
     ) -> str:
         """构建用户健康上下文描述
-        
+
         Args:
             user_profile: 用户画像
             age_intensity: 年龄对应的运动强度
             bmi_adjustment: BMI 调整建议
             final_intensity: 最终推荐强度
             contraindication_result: 禁忌病史检查结果
-        
+
         Returns:
             用户健康上下文的文本描述
         """
         context_parts = [
-            f"### 基本信息",
+            "### 基本信息",
             f"- 年龄: {user_profile.age}岁",
             f"- 性别: {user_profile.gender}",
             f"- BMI: {user_profile.bmi}",
             "",
-            f"### 运动能力评估",
+            "### 运动能力评估",
             f"- 基于年龄的推荐强度: {age_intensity.value}",
             f"- BMI 调整建议: {BMI_ADJUSTMENT_NOTES.get(bmi_adjustment, '标准强度')}",
             f"- 最终推荐强度: {final_intensity.value}",
         ]
-        
+
         # 生活方式信息
         lifestyle = user_profile.lifestyle
-        context_parts.extend([
-            "",
-            f"### 生活方式",
-            f"- 运动频率: {lifestyle.exercise_frequency}",
-            f"- 睡眠时长: {lifestyle.sleep_duration}小时",
-            f"- 压力等级: {lifestyle.stress_level}/10",
-        ])
-        
+        context_parts.extend(
+            [
+                "",
+                "### 生活方式",
+                f"- 运动频率: {lifestyle.exercise_frequency}",
+                f"- 睡眠时长: {lifestyle.sleep_duration}小时",
+                f"- 压力等级: {lifestyle.stress_level}/10",
+            ]
+        )
+
         # 禁忌信息
         if contraindication_result.has_contraindications:
-            context_parts.extend([
-                "",
-                f"### 运动禁忌",
-                f"需要避免的运动类型: {', '.join(contraindication_result.excluded_exercises)}",
-            ])
+            context_parts.extend(
+                [
+                    "",
+                    "### 运动禁忌",
+                    f"需要避免的运动类型: {', '.join(contraindication_result.excluded_exercises)}",
+                ]
+            )
             for category, details in contraindication_result.contraindication_details.items():
                 context_parts.append(f"- {category}: {details['description']}")
-        
+
         return "\n".join(context_parts)
-    
+
     async def _query_rag_with_timeout(
         self,
         user_profile,
         age_intensity: ExerciseIntensity,
         contraindication_result: ContraindicationResult,
-    ) -> List[str]:
+    ) -> list[str]:
         """带超时的 RAG 查询
-        
+
         Args:
             user_profile: 用户画像
             age_intensity: 年龄对应的运动强度
             contraindication_result: 禁忌病史检查结果
-        
+
         Returns:
             检索到的知识内容列表
         """
         try:
             # 构建查询文本
             query_parts = [
-                f"运动康复建议",
+                "运动康复建议",
                 f"年龄{user_profile.age}岁",
                 f"BMI {user_profile.bmi}",
                 f"推荐{age_intensity.value}运动",
             ]
-            
+
             # 添加禁忌信息
             if contraindication_result.has_contraindications:
-                query_parts.append(
-                    f"需避免{', '.join(contraindication_result.excluded_exercises)}"
-                )
-            
+                query_parts.append(f"需避免{', '.join(contraindication_result.excluded_exercises)}")
+
             query_text = " ".join(query_parts)
-            
+
             # 带超时执行 RAG 查询
             results = await asyncio.wait_for(
                 self._rag.query_rehabilitation(
@@ -527,27 +557,27 @@ class RehabilitationAgent(BaseAgent):
                 ),
                 timeout=self._rag_timeout,
             )
-            
+
             return [r.content for r in results]
-            
-        except asyncio.TimeoutError:
+
+        except TimeoutError:
             # RAG 查询超时，返回空结果
             return []
         except Exception:
             # RAG 查询失败，返回空结果
             return []
-    
+
     def _adjust_intensity(
         self,
         age_intensity: ExerciseIntensity,
         bmi_adjustment: IntensityAdjustment,
     ) -> ExerciseIntensity:
         """根据 BMI 调整最终运动强度
-        
+
         Args:
             age_intensity: 年龄对应的基础运动强度
             bmi_adjustment: BMI 调整建议
-        
+
         Returns:
             调整后的运动强度
         """
@@ -558,9 +588,9 @@ class RehabilitationAgent(BaseAgent):
             ExerciseIntensity.MEDIUM_HIGH,
             ExerciseIntensity.HIGH,
         ]
-        
+
         current_index = intensity_levels.index(age_intensity)
-        
+
         # 根据 BMI 调整
         if bmi_adjustment == IntensityAdjustment.SLIGHT_INCREASE:
             # 轻度增强：提升一级（如果可能）
@@ -574,58 +604,56 @@ class RehabilitationAgent(BaseAgent):
         else:
             # 标准强度：不调整
             new_index = current_index
-        
+
         return intensity_levels[new_index]
-    
+
     def _generate_action_items(
         self,
         final_intensity: ExerciseIntensity,
         bmi_adjustment: IntensityAdjustment,
         contraindication_result: ContraindicationResult,
-        rag_results: List[str],
+        rag_results: list[str],
         user_profile,
-    ) -> List[ActionItem]:
+    ) -> list[ActionItem]:
         """生成运动康复 Action_Item 列表
-        
+
         Args:
             final_intensity: 最终运动强度
             bmi_adjustment: BMI 调整建议
             contraindication_result: 禁忌病史检查结果
             rag_results: RAG 检索结果
             user_profile: 用户画像
-        
+
         Returns:
             Action_Item 列表（3-5个）
-        
+
         Requirement 7.4, 7.6
         """
-        action_items: List[ActionItem] = []
+        action_items: list[ActionItem] = []
         excluded_exercises = contraindication_result.excluded_exercises
-        
+
         # 获取对应强度的推荐运动
         recommendations = EXERCISE_RECOMMENDATIONS.get(final_intensity, [])
-        
+
         for rec in recommendations:
             # 检查是否有禁忌 (Requirement 7.6)
             tags = rec.get("tags", [])
-            has_contraindication = any(
-                tag in excluded_exercises for tag in tags
-            )
-            
+            has_contraindication = any(tag in excluded_exercises for tag in tags)
+
             if has_contraindication:
                 # 跳过有禁忌的运动
                 continue
-            
+
             # 根据 BMI 调整风险等级和描述
             risk_level = rec["risk_level"]
             description = rec["description"]
-            
+
             if bmi_adjustment == IntensityAdjustment.SIGNIFICANT_DECREASE:
                 # BMI ≥ 28 时，提升高冲击运动的风险等级
                 if any(tag in tags for tag in ["高冲击运动", "高强度有氧", "跳跃运动"]):
                     risk_level = RiskLevel.HIGH
                     description += " 注意：由于体重因素，请特别注意关节保护，建议在专业指导下进行。"
-            
+
             action_item = ActionItem(
                 category=ActionCategory.REHABILITATION,
                 title=rec["title"],
@@ -636,11 +664,11 @@ class RehabilitationAgent(BaseAgent):
                 duration=rec["duration"],
             )
             action_items.append(action_item)
-            
+
             # 限制为 3-5 个
             if len(action_items) >= 5:
                 break
-        
+
         # 如果因禁忌排除太多导致不足 3 个，添加通用安全建议
         while len(action_items) < 3:
             safe_recommendations = self._get_safe_fallback_recommendations(
@@ -650,27 +678,27 @@ class RehabilitationAgent(BaseAgent):
                 if len(action_items) >= 3:
                     break
                 action_items.append(safe_rec)
-        
+
         return action_items[:5]
-    
+
     def _get_safe_fallback_recommendations(
         self,
         excluded_exercises: set,
-        existing_titles: List[str],
-    ) -> List[ActionItem]:
+        existing_titles: list[str],
+    ) -> list[ActionItem]:
         """获取安全的备选建议
-        
+
         当因禁忌排除太多运动时，提供通用的安全建议。
-        
+
         Args:
             excluded_exercises: 需要排除的运动类型
             existing_titles: 已添加的建议标题
-        
+
         Returns:
             安全的 Action_Item 列表
         """
         fallback_items = []
-        
+
         safe_options = [
             ActionItem(
                 category=ActionCategory.REHABILITATION,
@@ -700,16 +728,16 @@ class RehabilitationAgent(BaseAgent):
                 duration="8周",
             ),
         ]
-        
+
         for item in safe_options:
             if item.title not in existing_titles:
                 fallback_items.append(item)
-        
+
         return fallback_items
-    
+
     def _build_response(
         self,
-        action_items: List[ActionItem],
+        action_items: list[ActionItem],
         age: int,
         age_intensity: ExerciseIntensity,
         bmi: float,
@@ -720,7 +748,7 @@ class RehabilitationAgent(BaseAgent):
         llm_response: str = "",
     ) -> str:
         """构建响应内容
-        
+
         Args:
             action_items: 生成的 Action_Item 列表
             age: 用户年龄
@@ -731,7 +759,7 @@ class RehabilitationAgent(BaseAgent):
             contraindication_result: 禁忌病史检查结果
             rag_used: 是否使用了 RAG 检索
             llm_response: LLM 生成的个性化建议
-        
+
         Returns:
             格式化的响应字符串
         """
@@ -739,88 +767,100 @@ class RehabilitationAgent(BaseAgent):
             "## 运动康复评估与建议",
             "",
         ]
-        
+
         # 添加 LLM 生成的个性化建议（如果有）
         if llm_response:
-            response_parts.extend([
-                "### 个性化建议",
+            response_parts.extend(
+                [
+                    "### 个性化建议",
+                    "",
+                    llm_response,
+                    "",
+                ]
+            )
+
+        response_parts.extend(
+            [
+                "### 个人运动能力评估",
                 "",
-                llm_response,
+                f"**年龄**: {age}岁 → 推荐基础强度: {age_intensity.value}",
+                f"**BMI**: {bmi} → {BMI_ADJUSTMENT_NOTES.get(bmi_adjustment, '')}",
+                f"**最终推荐强度**: {final_intensity.value}",
                 "",
-            ])
-        
-        response_parts.extend([
-            "### 个人运动能力评估",
-            "",
-            f"**年龄**: {age}岁 → 推荐基础强度: {age_intensity.value}",
-            f"**BMI**: {bmi} → {BMI_ADJUSTMENT_NOTES.get(bmi_adjustment, '')}",
-            f"**最终推荐强度**: {final_intensity.value}",
-            "",
-        ])
-        
+            ]
+        )
+
         # 添加禁忌信息
         if contraindication_result.has_contraindications:
-            response_parts.extend([
-                "### 运动禁忌提示",
-                "",
-                "根据您的健康状况，以下运动类型需要避免或谨慎：",
-                "",
-            ])
+            response_parts.extend(
+                [
+                    "### 运动禁忌提示",
+                    "",
+                    "根据您的健康状况，以下运动类型需要避免或谨慎：",
+                    "",
+                ]
+            )
             for category, details in contraindication_result.contraindication_details.items():
-                response_parts.append(
-                    f"- **{category}**: {details['description']}"
-                )
+                response_parts.append(f"- **{category}**: {details['description']}")
             response_parts.append("")
-        
+
         # 添加 RAG 使用说明
         if not rag_used:
-            response_parts.extend([
-                "> 注：本建议基于内置专业知识生成，未检索到专业知识库内容。",
-                "",
-            ])
-        
+            response_parts.extend(
+                [
+                    "> 注：本建议基于内置专业知识生成，未检索到专业知识库内容。",
+                    "",
+                ]
+            )
+
         # 添加运动建议
-        response_parts.extend([
-            "### 推荐运动计划",
-            "",
-        ])
-        
+        response_parts.extend(
+            [
+                "### 推荐运动计划",
+                "",
+            ]
+        )
+
         for i, item in enumerate(action_items, 1):
-            response_parts.extend([
-                f"#### {i}. {item.title}",
-                "",
-                f"**说明**: {item.description}",
-                "",
-                f"**频率**: {item.frequency}",
-                "",
-                f"**持续时间**: {item.duration}",
-                "",
-                f"**优先级**: {item.priority.value} | **风险等级**: {item.risk_level.value}",
-                "",
-            ])
-        
+            response_parts.extend(
+                [
+                    f"#### {i}. {item.title}",
+                    "",
+                    f"**说明**: {item.description}",
+                    "",
+                    f"**频率**: {item.frequency}",
+                    "",
+                    f"**持续时间**: {item.duration}",
+                    "",
+                    f"**优先级**: {item.priority.value} | **风险等级**: {item.risk_level.value}",
+                    "",
+                ]
+            )
+
         # 添加 Action_Item JSON 数据
-        response_parts.extend([
-            "---",
-            "",
-            "### 结构化数据",
-            "",
-            "```json",
-            json.dumps(
-                [item.model_dump(mode="json") for item in action_items],
-                ensure_ascii=False,
-                indent=2,
-            ),
-            "```",
-        ])
-        
+        response_parts.extend(
+            [
+                "---",
+                "",
+                "### 结构化数据",
+                "",
+                "```json",
+                json.dumps(
+                    [item.model_dump(mode="json") for item in action_items],
+                    ensure_ascii=False,
+                    indent=2,
+                ),
+                "```",
+            ]
+        )
+
         return "\n".join(response_parts)
-    
+
     def _generate_fallback_response(self) -> str:
         """生成降级响应
-        
+
         当处理出错时，返回基础的通用建议。
-        
+
         Returns:
             降级响应字符串
         """
@@ -853,7 +893,7 @@ class RehabilitationAgent(BaseAgent):
                 duration="4周",
             ),
         ]
-        
+
         response_parts = [
             "## 运动康复建议",
             "",
@@ -862,31 +902,35 @@ class RehabilitationAgent(BaseAgent):
             "### 推荐运动计划",
             "",
         ]
-        
+
         for i, item in enumerate(fallback_items, 1):
-            response_parts.extend([
-                f"#### {i}. {item.title}",
+            response_parts.extend(
+                [
+                    f"#### {i}. {item.title}",
+                    "",
+                    f"**说明**: {item.description}",
+                    "",
+                    f"**频率**: {item.frequency}",
+                    "",
+                    f"**持续时间**: {item.duration}",
+                    "",
+                ]
+            )
+
+        response_parts.extend(
+            [
+                "---",
                 "",
-                f"**说明**: {item.description}",
+                "### 结构化数据",
                 "",
-                f"**频率**: {item.frequency}",
-                "",
-                f"**持续时间**: {item.duration}",
-                "",
-            ])
-        
-        response_parts.extend([
-            "---",
-            "",
-            "### 结构化数据",
-            "",
-            "```json",
-            json.dumps(
-                [item.model_dump(mode="json") for item in fallback_items],
-                ensure_ascii=False,
-                indent=2,
-            ),
-            "```",
-        ])
-        
+                "```json",
+                json.dumps(
+                    [item.model_dump(mode="json") for item in fallback_items],
+                    ensure_ascii=False,
+                    indent=2,
+                ),
+                "```",
+            ]
+        )
+
         return "\n".join(response_parts)

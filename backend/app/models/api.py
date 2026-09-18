@@ -4,8 +4,6 @@ API 请求/响应模型
 Requirements 13.2, 14.2: 定义 API 请求和响应数据结构
 """
 
-from typing import List, Optional
-
 from pydantic import BaseModel, Field
 
 from app.models.action_item import ActionItem
@@ -48,7 +46,7 @@ class ConfirmResponse(BaseModel):
     """
 
     status: str = Field(..., description="响应状态: 'resumed' | 'terminated'")
-    partial_report: Optional[FinalReport] = Field(
+    partial_report: FinalReport | None = Field(
         default=None, description="部分报告（仅在用户拒绝时包含）"
     )
 
@@ -72,9 +70,7 @@ class PauseEventData(BaseModel):
     """
 
     session_id: str = Field(..., description="会话ID")
-    high_risk_items: List[ActionItem] = Field(
-        ..., description="需要确认的高风险干预措施列表"
-    )
+    high_risk_items: list[ActionItem] = Field(..., description="需要确认的高风险干预措施列表")
     timeout_seconds: int = Field(default=600, description="超时时间（秒），默认10分钟")
 
 

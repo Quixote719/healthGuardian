@@ -8,7 +8,7 @@ Requirements: 11.1-11.6
 Design Reference: RAG 工具设计 - Markdown RAG 实现
 """
 
-from typing import Any, List, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -105,10 +105,10 @@ class MarkdownRAG(RAGInterface):
         self._index: Any = None
 
         # 最后查询状态
-        self._last_query_status: Optional[QueryStatus] = None
+        self._last_query_status: QueryStatus | None = None
 
         # 可用性标志（用于测试时覆盖）
-        self._force_available: Optional[bool] = None
+        self._force_available: bool | None = None
 
         # 如果依赖可用，立即初始化
         if CHROMADB_AVAILABLE and LLAMA_INDEX_AVAILABLE:
@@ -145,14 +145,14 @@ class MarkdownRAG(RAGInterface):
         return CHROMADB_AVAILABLE and LLAMA_INDEX_AVAILABLE
 
     @property
-    def last_query_status(self) -> Optional[QueryStatus]:
+    def last_query_status(self) -> QueryStatus | None:
         """获取最后一次查询的状态信息"""
         return self._last_query_status
 
     async def build_index(
         self,
-        documents: List[Any],
-        category: Optional[str] = None,
+        documents: list[Any],
+        category: str | None = None,
     ) -> bool:
         """构建向量索引
 
@@ -170,8 +170,7 @@ class MarkdownRAG(RAGInterface):
         """
         if not self.is_available:
             raise RuntimeError(
-                "LlamaIndex 或 ChromaDB 依赖不可用。"
-                "请安装 llama-index 和 chromadb 包。"
+                "LlamaIndex 或 ChromaDB 依赖不可用。请安装 llama-index 和 chromadb 包。"
             )
 
         if not documents:
@@ -214,8 +213,8 @@ class MarkdownRAG(RAGInterface):
 
     async def add_documents(
         self,
-        documents: List[Any],
-        category: Optional[str] = None,
+        documents: list[Any],
+        category: str | None = None,
     ) -> int:
         """向现有索引添加文档
 
@@ -251,8 +250,8 @@ class MarkdownRAG(RAGInterface):
         query_text: str,
         top_k: int = 5,
         similarity_threshold: float = 0.7,
-        category: Optional[str] = None,
-    ) -> List[RAGResult]:
+        category: str | None = None,
+    ) -> list[RAGResult]:
         """执行检索查询
 
         支持类别过滤和相似度阈值过滤。
@@ -303,7 +302,7 @@ class MarkdownRAG(RAGInterface):
             retrieved_nodes = retriever.retrieve(query_text)
 
             # 处理和过滤结果
-            results: List[RAGResult] = []
+            results: list[RAGResult] = []
             for node_with_score in retrieved_nodes:
                 # 获取相似度分数
                 score = getattr(node_with_score, "score", 0.0)
@@ -374,7 +373,7 @@ class MarkdownRAG(RAGInterface):
         query_text: str,
         top_k: int = 5,
         similarity_threshold: float = 0.7,
-    ) -> List[RAGResult]:
+    ) -> list[RAGResult]:
         """检索营养学知识库
 
         便捷方法，自动设置类别过滤为"营养学"。
@@ -399,7 +398,7 @@ class MarkdownRAG(RAGInterface):
         query_text: str,
         top_k: int = 5,
         similarity_threshold: float = 0.7,
-    ) -> List[RAGResult]:
+    ) -> list[RAGResult]:
         """检索运动康复知识库
 
         便捷方法，自动设置类别过滤为"运动康复"。

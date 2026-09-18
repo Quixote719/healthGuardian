@@ -9,6 +9,7 @@
 - **流式处理**: Vercel AI SDK (@ai-sdk/react)
 - **Markdown 渲染**: react-markdown + remark-gfm
 - **类型检查**: TypeScript
+- **E2E 测试**: Playwright
 
 ## 项目结构
 
@@ -25,6 +26,10 @@ frontend/
 │   └── utils.ts          # 通用工具函数
 ├── types/                 # TypeScript 类型定义
 │   └── index.ts          # 核心类型定义
+├── e2e/                   # Playwright E2E 测试
+│   ├── home.spec.ts      # 首页测试
+│   ├── chat.spec.ts      # 聊天功能测试
+│   └── hitl.spec.ts      # HITL 弹窗测试
 └── public/               # 静态资源
 ```
 
@@ -33,21 +38,13 @@ frontend/
 ### 安装依赖
 
 ```bash
-npm install
-# 或
 pnpm install
-# 或
-yarn install
 ```
 
 ### 开发服务器
 
 ```bash
-npm run dev
-# 或
 pnpm dev
-# 或
-yarn dev
 ```
 
 在浏览器中打开 [http://localhost:3000](http://localhost:3000) 查看结果。
@@ -55,19 +52,38 @@ yarn dev
 ### 构建生产版本
 
 ```bash
-npm run build
-npm run start
+pnpm build
+pnpm start
+```
+
+### 运行测试
+
+```bash
+# 运行所有 E2E 测试
+pnpm test:e2e
+
+# 打开 Playwright UI 模式
+pnpm test:e2e:ui
+
+# 有头模式运行（可见浏览器）
+pnpm test:e2e:headed
+
+# 调试模式
+pnpm test:e2e:debug
+
+# 查看测试报告
+pnpm test:e2e:report
 ```
 
 ## 核心组件
 
-### Insight_Card (待实现)
+### Insight_Card
 展示 AI 生成的深度健康洞察，支持 Markdown 渲染和骨架屏加载状态。
 
-### Action_Plan_List (待实现)
+### Action_Plan_List
 按类别（营养、康复、神经心理）分组展示行动计划，支持折叠展开。
 
-### HITL_Confirmation_Dialog (待实现)
+### HITL_Confirmation_Dialog
 高风险干预确认弹窗，包含10分钟倒计时和键盘交互支持。
 
 ## 环境变量

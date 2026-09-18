@@ -20,14 +20,12 @@ Design Reference: API 设计 - HITL 确认 API
 """
 
 import logging
-from typing import Optional
 
 from fastapi import APIRouter, HTTPException, status
 
 from app.models.api import ConfirmRequest, ConfirmResponse
 from app.models.final_report import FinalReport
 from app.workflow.hitl import HITLManager, SessionStatus
-
 
 # Setup logging
 logger = logging.getLogger(__name__)
@@ -51,23 +49,24 @@ HITL_TIMEOUT_MINUTES = 10
 
 # 从 chat 路由获取共享的 HITL 管理器
 # 延迟导入以避免循环依赖
-_hitl_manager: Optional[HITLManager] = None
+_hitl_manager: HITLManager | None = None
 
 
 def _get_hitl_manager() -> HITLManager:
     """获取 HITL 管理器实例
-    
+
     使用延迟导入从 chat 路由获取共享的 HITL 管理器。
-    
+
     Returns:
         HITLManager: HITL 管理器实例
     """
     global _hitl_manager
-    
+
     if _hitl_manager is None:
         from app.api.routes.chat import get_hitl_manager
+
         _hitl_manager = get_hitl_manager()
-    
+
     return _hitl_manager
 
 
@@ -79,33 +78,33 @@ def _get_hitl_manager() -> HITLManager:
 @router.post("/confirm", response_model=ConfirmResponse)
 async def confirm_hitl(request: ConfirmRequest) -> ConfirmResponse:
     """HITL 确认端点
-    
+
     处理用户对高风险干预的确认或拒绝响应。
-    
+
     Requirements: 14.1-14.11
     - 14.1: 提供 /confirm POST 端点接收用户的 HITL 确认响应
     - 14.2: 接收包含 session_id 和 confirmed 字段的 JSON 请求体
     - 14.3: 验证对应的工作流会话存在且处于暂停状态
-    
+
     Args:
         request: ConfirmRequest 包含 session_id 和 confirmed
-    
+
     Returns:
         ConfirmResponse: 包含 status 和可选的 partial_report
-    
+
     Raises:
-        HTTPException: 
+        HTTPException:
             - 404: 会话不存在 (session_not_found)
             - 400: 会话未暂停 (session_not_paused)
             - 400: 会话超时 (session_timeout)
-    
+
     Example:
         POST /api/confirm
         {
             "session_id": "sess_abc123",
             "confirmed": true
         }
-        
+
         Response:
         {
             "status": "resumed",
@@ -114,17 +113,15 @@ async def confirm_hitl(request: ConfirmRequest) -> ConfirmResponse:
     """
     session_id = request.session_id
     confirmed = request.confirmed
-    
-    logger.info(
-        f"HITL confirm request: session_id={session_id}, confirmed={confirmed}"
-    )
-    
+
+    logger.info(f"HITL confirm request: session_id={session_id}, confirmed={confirmed}")
+
     # 获取 HITL 管理器
     hitl_manager = _get_hitl_manager()
-    
+
     # ========== 验证会话存在 (Requirement 14.3, 14.4) ==========
     session = hitl_manager.get_session(session_id)
-    
+
     if session is None:
         logger.warning(f"Session not found: {session_id}")
         raise HTTPException(
@@ -134,12 +131,10 @@ async def confirm_hitl(request: ConfirmRequest) -> ConfirmResponse:
                 "message": "会话不存在",
             },
         )
-    
+
     # ========== 验证会话处于暂停状态 (Requirement 14.3, 14.5) ==========
     if session.status != SessionStatus.PAUSED:
-        logger.warning(
-            f"Session not paused: session_id={session_id}, status={session.status}"
-        )
+        logger.warning(f"Session not paused: session_id={session_id}, status={session.status}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={
@@ -147,22 +142,22 @@ async def confirm_hitl(request: ConfirmRequest) -> ConfirmResponse:
                 "message": "会话未处于暂停状态",
             },
         )
-    
+
     # ========== 检查超时 (Requirement 14.9, 14.10) ==========
     is_timeout = await hitl_manager.check_timeout(
         session_id=session_id,
         timeout_minutes=HITL_TIMEOUT_MINUTES,
     )
-    
+
     if is_timeout:
         logger.warning(f"Session timeout: {session_id}")
-        
+
         # 自动终止超时会话 (Requirement 14.10)
         await hitl_manager.terminate_session(
             session_id=session_id,
             reason=f"timeout after {HITL_TIMEOUT_MINUTES} minutes",
         )
-        
+
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={
@@ -170,7 +165,7 @@ async def confirm_hitl(request: ConfirmRequest) -> ConfirmResponse:
                 "message": f"会话已超时（{HITL_TIMEOUT_MINUTES}分钟）",
             },
         )
-    
+
     # ========== 处理确认/拒绝 (Requirements 14.6, 14.7, 14.8) ==========
     if confirmed:
         # 用户确认执行 (Requirement 14.6)
@@ -178,9 +173,9 @@ async def confirm_hitl(request: ConfirmRequest) -> ConfirmResponse:
             session_id=session_id,
             confirmed=True,
         )
-        
+
         logger.info(f"Workflow resumed: session_id={session_id}")
-        
+
         return ConfirmResponse(
             status="resumed",
             partial_report=None,
@@ -189,8 +184,8 @@ async def confirm_hitl(request: ConfirmRequest) -> ConfirmResponse:
         # 用户拒绝执行 (Requirement 14.7)
         # 获取部分报告
         paused_state = session.state
-        partial_report: Optional[FinalReport] = None
-        
+        partial_report: FinalReport | None = None
+
         final_report = paused_state.get("final_report")
         if final_report is not None:
             if isinstance(final_report, FinalReport):
@@ -205,15 +200,15 @@ async def confirm_hitl(request: ConfirmRequest) -> ConfirmResponse:
                 except Exception as e:
                     logger.warning(f"Failed to convert partial report: {e}")
                     partial_report = None
-        
+
         # 终止工作流
         await hitl_manager.terminate_session(
             session_id=session_id,
             reason="user rejected",
         )
-        
+
         logger.info(f"Workflow terminated by user: session_id={session_id}")
-        
+
         return ConfirmResponse(
             status="terminated",
             partial_report=partial_report,
@@ -228,18 +223,18 @@ async def confirm_hitl(request: ConfirmRequest) -> ConfirmResponse:
 @router.get("/confirm/status/{session_id}")
 async def get_confirm_status(session_id: str):
     """获取会话确认状态
-    
+
     用于前端轮询检查会话状态。
-    
+
     Args:
         session_id: 会话 ID
-    
+
     Returns:
         dict: 包含会话状态信息
     """
     hitl_manager = _get_hitl_manager()
     session = hitl_manager.get_session(session_id)
-    
+
     if session is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -248,13 +243,13 @@ async def get_confirm_status(session_id: str):
                 "message": "会话不存在",
             },
         )
-    
+
     # 检查是否超时
     is_timeout = await hitl_manager.check_timeout(
         session_id=session_id,
         timeout_minutes=HITL_TIMEOUT_MINUTES,
     )
-    
+
     return {
         "session_id": session_id,
         "status": session.status.value,

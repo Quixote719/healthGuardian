@@ -9,20 +9,19 @@ Requirements: 6.1-6.7
 
 import asyncio
 import json
-from typing import List, Optional
+from typing import Optional
 
 from app.agents.base import BaseAgent
 from app.agents.health_analyzer import (
-    detect_glucose_abnormality,
-    detect_lipid_abnormality,
     GlucoseAbnormalityResult,
     LipidAbnormalityResult,
+    detect_glucose_abnormality,
+    detect_lipid_abnormality,
 )
 from app.models.action_item import ActionCategory, ActionItem, Priority, RiskLevel
 from app.models.state import HealthState, NodeExecutionStatus
 from app.models.user_profile import Medication, UserProfile
 from app.services.llm import get_llm_service
-
 
 # ============================================================================
 # 药物-食物交互配置 (Requirement 6.5)
@@ -37,7 +36,18 @@ DRUG_FOOD_INTERACTIONS: dict[str, dict] = {
         "risk_level": RiskLevel.MEDIUM,
     },
     "他汀类": {
-        "keywords": ["他汀", "阿托伐他汀", "瑞舒伐他汀", "辛伐他汀", "普伐他汀", "氟伐他汀", "洛伐他汀", "匹伐他汀", "statin", "降脂药"],
+        "keywords": [
+            "他汀",
+            "阿托伐他汀",
+            "瑞舒伐他汀",
+            "辛伐他汀",
+            "普伐他汀",
+            "氟伐他汀",
+            "洛伐他汀",
+            "匹伐他汀",
+            "statin",
+            "降脂药",
+        ],
         "warning": "他汀类药物与葡萄柚交互警告：葡萄柚及其果汁可抑制药物代谢酶（CYP3A4），可能增加药物浓度，增加肌肉损伤风险。建议避免同时食用葡萄柚或葡萄柚汁。",
         "food_category": "葡萄柚及其果汁",
         "risk_level": RiskLevel.MEDIUM,
@@ -49,7 +59,23 @@ DRUG_FOOD_INTERACTIONS: dict[str, dict] = {
         "risk_level": RiskLevel.HIGH,
     },
     "ACEI/ARB": {
-        "keywords": ["普利", "沙坦", "依那普利", "贝那普利", "赖诺普利", "卡托普利", "氯沙坦", "缬沙坦", "厄贝沙坦", "替米沙坦", "奥美沙坦", "坎地沙坦", "ACEI", "ARB", "血管紧张素"],
+        "keywords": [
+            "普利",
+            "沙坦",
+            "依那普利",
+            "贝那普利",
+            "赖诺普利",
+            "卡托普利",
+            "氯沙坦",
+            "缬沙坦",
+            "厄贝沙坦",
+            "替米沙坦",
+            "奥美沙坦",
+            "坎地沙坦",
+            "ACEI",
+            "ARB",
+            "血管紧张素",
+        ],
         "warning": "ACEI/ARB类降压药与高钾食物交互警告：这类药物可能导致血钾升高，同时摄入大量高钾食物（香蕉、橙子、土豆、菠菜）可能导致高钾血症。建议监测血钾水平，适度控制高钾食物摄入。",
         "food_category": "高钾食物（香蕉、橙子、土豆、菠菜等）",
         "risk_level": RiskLevel.MEDIUM,
@@ -120,8 +146,8 @@ BASIC_NUTRITION_ADVICE = {
 
 
 def _detect_drug_food_interactions(
-    medications: List[Medication],
-) -> List[dict]:
+    medications: list[Medication],
+) -> list[dict]:
     """检测药物-食物交互
 
     根据用户用药史检测潜在的药物-食物交互风险。
@@ -152,13 +178,15 @@ def _detect_drug_food_interactions(
             # 检查药物名称是否匹配关键词
             for keyword in interaction_info["keywords"]:
                 if keyword.lower() in drug_name:
-                    interactions.append({
-                        "drug_category": category,
-                        "drug_name": medication.drug_name,
-                        "warning": interaction_info["warning"],
-                        "food_category": interaction_info["food_category"],
-                        "risk_level": interaction_info["risk_level"],
-                    })
+                    interactions.append(
+                        {
+                            "drug_category": category,
+                            "drug_name": medication.drug_name,
+                            "warning": interaction_info["warning"],
+                            "food_category": interaction_info["food_category"],
+                            "risk_level": interaction_info["risk_level"],
+                        }
+                    )
                     checked_categories.add(category)
                     break
 
@@ -167,7 +195,7 @@ def _detect_drug_food_interactions(
 
 def _generate_lipid_action_items(
     lipid_result: LipidAbnormalityResult,
-) -> List[ActionItem]:
+) -> list[ActionItem]:
     """根据血脂异常结果生成营养干预措施
 
     Args:
@@ -194,27 +222,31 @@ def _generate_lipid_action_items(
 
         description = f"检测到{', '.join(abnormal_details)}异常。{advice['description']}"
 
-        items.append(ActionItem(
-            category=ActionCategory.NUTRITION,
-            title=advice["title"],
-            description=description,
-            frequency=advice["frequency"],
-            priority=advice["priority"],
-            risk_level=advice["risk_level"],
-            duration=advice["duration"],
-        ))
+        items.append(
+            ActionItem(
+                category=ActionCategory.NUTRITION,
+                title=advice["title"],
+                description=description,
+                frequency=advice["frequency"],
+                priority=advice["priority"],
+                risk_level=advice["risk_level"],
+                duration=advice["duration"],
+            )
+        )
 
         # 增加膳食纤维
         fiber_advice = BASIC_NUTRITION_ADVICE["lipid_cholesterol"]
-        items.append(ActionItem(
-            category=ActionCategory.NUTRITION,
-            title=fiber_advice["title"],
-            description=fiber_advice["description"],
-            frequency=fiber_advice["frequency"],
-            priority=fiber_advice["priority"],
-            risk_level=fiber_advice["risk_level"],
-            duration=fiber_advice["duration"],
-        ))
+        items.append(
+            ActionItem(
+                category=ActionCategory.NUTRITION,
+                title=fiber_advice["title"],
+                description=fiber_advice["description"],
+                frequency=fiber_advice["frequency"],
+                priority=fiber_advice["priority"],
+                risk_level=fiber_advice["risk_level"],
+                duration=fiber_advice["duration"],
+            )
+        )
 
     # 甘油三酯偏高 - Omega-3
     if "甘油三酯偏高" in lipid_result.abnormal_items:
@@ -222,35 +254,39 @@ def _generate_lipid_action_items(
         omega3_advice = BASIC_NUTRITION_ADVICE["lipid_omega3"]
         description = f"检测到甘油三酯 {tg_info.get('value', '?')} mmol/L 偏高。{omega3_advice['description']}"
 
-        items.append(ActionItem(
-            category=ActionCategory.NUTRITION,
-            title=omega3_advice["title"],
-            description=description,
-            frequency=omega3_advice["frequency"],
-            priority=omega3_advice["priority"],
-            risk_level=omega3_advice["risk_level"],
-            duration=omega3_advice["duration"],
-        ))
+        items.append(
+            ActionItem(
+                category=ActionCategory.NUTRITION,
+                title=omega3_advice["title"],
+                description=description,
+                frequency=omega3_advice["frequency"],
+                priority=omega3_advice["priority"],
+                risk_level=omega3_advice["risk_level"],
+                duration=omega3_advice["duration"],
+            )
+        )
 
     # HDL偏低 - 需要综合干预
     if "HDL偏低" in lipid_result.abnormal_items:
         hdl_info = lipid_result.details.get("hdl", {})
-        items.append(ActionItem(
-            category=ActionCategory.NUTRITION,
-            title="提升HDL水平的饮食调整",
-            description=f"检测到HDL {hdl_info.get('value', '?')} mmol/L 偏低。增加单不饱和脂肪酸摄入（橄榄油、牛油果、坚果），适量食用富含抗氧化剂的食物（蓝莓、深色蔬菜），限制反式脂肪酸摄入。",
-            frequency="每日执行",
-            priority=Priority.MEDIUM,
-            risk_level=RiskLevel.LOW,
-            duration="12周",
-        ))
+        items.append(
+            ActionItem(
+                category=ActionCategory.NUTRITION,
+                title="提升HDL水平的饮食调整",
+                description=f"检测到HDL {hdl_info.get('value', '?')} mmol/L 偏低。增加单不饱和脂肪酸摄入（橄榄油、牛油果、坚果），适量食用富含抗氧化剂的食物（蓝莓、深色蔬菜），限制反式脂肪酸摄入。",
+                frequency="每日执行",
+                priority=Priority.MEDIUM,
+                risk_level=RiskLevel.LOW,
+                duration="12周",
+            )
+        )
 
     return items
 
 
 def _generate_glucose_action_items(
     glucose_result: GlucoseAbnormalityResult,
-) -> List[ActionItem]:
+) -> list[ActionItem]:
     """根据血糖异常结果生成营养干预措施
 
     Args:
@@ -268,17 +304,21 @@ def _generate_glucose_action_items(
     if "空腹血糖偏高" in glucose_result.abnormal_items:
         fg_info = glucose_result.details.get("fasting_glucose", {})
         carb_advice = BASIC_NUTRITION_ADVICE["glucose_general"]
-        description = f"检测到空腹血糖 {fg_info.get('value', '?')} mmol/L 偏高。{carb_advice['description']}"
+        description = (
+            f"检测到空腹血糖 {fg_info.get('value', '?')} mmol/L 偏高。{carb_advice['description']}"
+        )
 
-        items.append(ActionItem(
-            category=ActionCategory.NUTRITION,
-            title=carb_advice["title"],
-            description=description,
-            frequency=carb_advice["frequency"],
-            priority=carb_advice["priority"],
-            risk_level=carb_advice["risk_level"],
-            duration=carb_advice["duration"],
-        ))
+        items.append(
+            ActionItem(
+                category=ActionCategory.NUTRITION,
+                title=carb_advice["title"],
+                description=description,
+                frequency=carb_advice["frequency"],
+                priority=carb_advice["priority"],
+                risk_level=carb_advice["risk_level"],
+                duration=carb_advice["duration"],
+            )
+        )
 
     # 糖化血红蛋白偏高
     if "糖化血红蛋白偏高" in glucose_result.abnormal_items:
@@ -286,22 +326,24 @@ def _generate_glucose_action_items(
         portion_advice = BASIC_NUTRITION_ADVICE["glucose_portion"]
         description = f"检测到糖化血红蛋白 {hba1c_info.get('value', '?')}% 偏高，表明近期血糖控制欠佳。{portion_advice['description']}"
 
-        items.append(ActionItem(
-            category=ActionCategory.NUTRITION,
-            title=portion_advice["title"],
-            description=description,
-            frequency=portion_advice["frequency"],
-            priority=portion_advice["priority"],
-            risk_level=portion_advice["risk_level"],
-            duration=portion_advice["duration"],
-        ))
+        items.append(
+            ActionItem(
+                category=ActionCategory.NUTRITION,
+                title=portion_advice["title"],
+                description=description,
+                frequency=portion_advice["frequency"],
+                priority=portion_advice["priority"],
+                risk_level=portion_advice["risk_level"],
+                duration=portion_advice["duration"],
+            )
+        )
 
     return items
 
 
 def _generate_drug_interaction_warnings(
-    interactions: List[dict],
-) -> List[ActionItem]:
+    interactions: list[dict],
+) -> list[ActionItem]:
     """根据药物-食物交互检测结果生成警告
 
     Args:
@@ -313,15 +355,17 @@ def _generate_drug_interaction_warnings(
     items = []
 
     for interaction in interactions:
-        items.append(ActionItem(
-            category=ActionCategory.NUTRITION,
-            title=f"⚠️ {interaction['drug_category']}药物饮食注意事项",
-            description=interaction["warning"],
-            frequency="用药期间持续注意",
-            priority=Priority.HIGH,
-            risk_level=interaction["risk_level"],
-            duration="12周",  # 使用标准格式，实际应持续用药期间
-        ))
+        items.append(
+            ActionItem(
+                category=ActionCategory.NUTRITION,
+                title=f"⚠️ {interaction['drug_category']}药物饮食注意事项",
+                description=interaction["warning"],
+                frequency="用药期间持续注意",
+                priority=Priority.HIGH,
+                risk_level=interaction["risk_level"],
+                duration="12周",  # 使用标准格式，实际应持续用药期间
+            )
+        )
 
     return items
 
@@ -391,7 +435,7 @@ class NutritionAgent(BaseAgent):
     async def _query_rag_with_timeout(
         self,
         query: str,
-    ) -> List[dict]:
+    ) -> list[dict]:
         """带超时的 RAG 查询
 
         Args:
@@ -426,7 +470,7 @@ class NutritionAgent(BaseAgent):
                 }
                 for r in results
             ]
-        except asyncio.TimeoutError:
+        except TimeoutError:
             # Requirement 6.2: 超时时返回空列表
             return []
         except Exception:
@@ -437,7 +481,7 @@ class NutritionAgent(BaseAgent):
         """处理营养学分析任务
 
         从 Health_State 读取用户画像和查询，调用 LLM 生成个性化营养建议。
-        如果没有用户画像，则只根据用户查询生成通用建议。
+        LLM 返回结构化 JSON，直接驱动 action_items 生成。
 
         Args:
             state: 当前的 LangGraph 全局状态
@@ -455,17 +499,18 @@ class NutritionAgent(BaseAgent):
 
         # 获取用户查询
         user_query = state.get("user_query", "")
-        
+
         # 获取用户画像（可能为 None）
-        user_profile: Optional[UserProfile] = state.get("user_profile")
-        
+        user_profile: UserProfile | None = state.get("user_profile")
+
         # 初始化响应结构
-        action_items: List[ActionItem] = []
-        rag_results: List[dict] = []
-        analysis_notes: List[str] = []
-        interactions: List[dict] = []
-        lipid_result: Optional[LipidAbnormalityResult] = None
-        glucose_result: Optional[GlucoseAbnormalityResult] = None
+        action_items: list[ActionItem] = []
+        rag_results: list[dict] = []
+        analysis_notes: list[str] = []
+        interactions: list[dict] = []
+        lipid_result: LipidAbnormalityResult | None = None
+        glucose_result: GlucoseAbnormalityResult | None = None
+        deep_insight = ""
 
         # 如果有用户画像，进行个性化分析
         if user_profile is not None:
@@ -499,10 +544,12 @@ class NutritionAgent(BaseAgent):
             for query in search_queries:
                 results = await self._query_rag_with_timeout(query)
                 rag_results.extend(results)
-            
+
             # 提取 RAG 内容用于 LLM
             if rag_results:
-                rag_content = "\n\n".join([r.get("content", "") for r in rag_results if r.get("content")])
+                rag_content = "\n\n".join(
+                    [r.get("content", "") for r in rag_results if r.get("content")]
+                )
 
         # 5. 构建用户健康上下文（如果有用户画像）
         user_context = ""
@@ -513,52 +560,58 @@ class NutritionAgent(BaseAgent):
         else:
             user_context = "（用户未提供个人健康档案，请提供通用建议）"
 
-        # 6. 调用 LLM 生成建议
-        llm_response = ""
+        # 6. 调用 LLM 生成结构化建议（核心改动：LLM 驱动 action_items）
         if user_query:
             try:
                 llm_service = get_llm_service()
-                llm_response = await llm_service.generate_health_advice(
+                llm_result = await llm_service.generate_structured_advice(
+                    agent_type="nutrition",
                     system_prompt=self.get_system_prompt(),
                     user_query=user_query,
                     user_context=user_context,
                     rag_knowledge=rag_content,
                 )
-            except Exception as e:
-                # LLM 调用失败
-                llm_response = f"抱歉，服务暂时不可用，请稍后重试。（错误：{type(e).__name__}）"
 
-        # 7. 生成结构化 Action_Item (Requirement 6.6)
-        # 只有在有用户画像时才基于检测结果生成 action items
-        if user_profile is not None:
-            if interactions:
-                action_items.extend(_generate_drug_interaction_warnings(interactions))
-            if lipid_result and lipid_result.is_abnormal:
-                action_items.extend(_generate_lipid_action_items(lipid_result))
-            if glucose_result and glucose_result.is_abnormal:
-                action_items.extend(_generate_glucose_action_items(glucose_result))
-        
-        # 确保至少有 1 个通用 action item
-        if len(action_items) < 1:
-            balanced = BASIC_NUTRITION_ADVICE["balanced_diet"]
-            action_items.append(ActionItem(
-                category=ActionCategory.NUTRITION,
-                title=balanced["title"],
-                description=balanced["description"],
-                frequency=balanced["frequency"],
-                priority=balanced["priority"],
-                risk_level=balanced["risk_level"],
-                duration=balanced["duration"],
-            ))
-        
+                # 提取 deep_insight
+                deep_insight = llm_result.get("deep_insight", "")
+
+                # 解析 LLM 返回的 action_items
+                for item_data in llm_result.get("action_items", []):
+                    try:
+                        # 确保 category 是营养
+                        item_data["category"] = "营养"
+                        action_items.append(ActionItem(**item_data))
+                    except Exception:
+                        # 跳过无效的 action item
+                        continue
+
+            except Exception as e:
+                # LLM 调用失败，直接返回错误状态
+                error_response = {
+                    "has_user_profile": user_profile is not None,
+                    "error": True,
+                    "error_type": type(e).__name__,
+                    "error_message": f"LLM 服务不可用：{type(e).__name__}",
+                    "action_items": [],
+                }
+                state["expert_responses"]["nutrition"] = json.dumps(
+                    error_response, ensure_ascii=False
+                )
+                state["node_execution_status"][self.name] = NodeExecutionStatus.FAILED
+                return state
+
         # 限制最多 5 个
         action_items = action_items[:5]
 
         # 8. 构建响应结果 (Requirement 6.7)
         response_data = {
             "has_user_profile": user_profile is not None,
-            "analysis_summary": "; ".join(analysis_notes) if analysis_notes else "未提供个人健康档案" if user_profile is None else "未检测到明显异常",
-            "llm_response": llm_response,
+            "analysis_summary": "; ".join(analysis_notes)
+            if analysis_notes
+            else "未提供个人健康档案"
+            if user_profile is None
+            else "未检测到明显异常",
+            "deep_insight": deep_insight,
             "rag_results_count": len(rag_results),
             "action_items": [item.model_dump() for item in action_items],
             "drug_interactions": [
@@ -578,108 +631,124 @@ class NutritionAgent(BaseAgent):
         state["node_execution_status"][self.name] = NodeExecutionStatus.COMPLETED
 
         return state
-    
+
     def _build_user_context(
         self,
         user_profile: UserProfile,
         lipid_result: LipidAbnormalityResult,
         glucose_result: GlucoseAbnormalityResult,
-        interactions: List[dict],
+        interactions: list[dict],
     ) -> str:
         """构建用户健康上下文描述
-        
+
         Args:
             user_profile: 用户画像
             lipid_result: 血脂检测结果
             glucose_result: 血糖检测结果
             interactions: 药物-食物交互列表
-        
+
         Returns:
             用户健康上下文的文本描述
         """
         context_parts = [
-            f"### 基本信息",
+            "### 基本信息",
             f"- 年龄: {user_profile.age}岁",
             f"- 性别: {user_profile.gender}",
             f"- BMI: {user_profile.bmi}",
             "",
-            f"### 血脂指标",
+            "### 血脂指标",
         ]
-        
+
         blood_lipids = user_profile.physical_examination.blood_lipids
-        context_parts.extend([
-            f"- 总胆固醇: {blood_lipids.total_cholesterol} mmol/L",
-            f"- LDL: {blood_lipids.ldl} mmol/L",
-            f"- HDL: {blood_lipids.hdl} mmol/L",
-            f"- 甘油三酯: {blood_lipids.triglycerides} mmol/L",
-        ])
-        
+        context_parts.extend(
+            [
+                f"- 总胆固醇: {blood_lipids.total_cholesterol} mmol/L",
+                f"- LDL: {blood_lipids.ldl} mmol/L",
+                f"- HDL: {blood_lipids.hdl} mmol/L",
+                f"- 甘油三酯: {blood_lipids.triglycerides} mmol/L",
+            ]
+        )
+
         if lipid_result.is_abnormal:
             context_parts.append(f"- ⚠️ 异常项: {', '.join(lipid_result.abnormal_items)}")
-        
-        context_parts.extend([
-            "",
-            f"### 血糖指标",
-        ])
-        
+
+        context_parts.extend(
+            [
+                "",
+                "### 血糖指标",
+            ]
+        )
+
         blood_glucose = user_profile.physical_examination.blood_glucose
-        context_parts.extend([
-            f"- 空腹血糖: {blood_glucose.fasting_glucose} mmol/L",
-            f"- 糖化血红蛋白: {blood_glucose.hba1c}%",
-        ])
-        
+        context_parts.extend(
+            [
+                f"- 空腹血糖: {blood_glucose.fasting_glucose} mmol/L",
+                f"- 糖化血红蛋白: {blood_glucose.hba1c}%",
+            ]
+        )
+
         if glucose_result.is_abnormal:
             context_parts.append(f"- ⚠️ 异常项: {', '.join(glucose_result.abnormal_items)}")
-        
+
         # 用药情况
         if user_profile.medications:
-            context_parts.extend([
-                "",
-                f"### 当前用药",
-            ])
+            context_parts.extend(
+                [
+                    "",
+                    "### 当前用药",
+                ]
+            )
             for med in user_profile.medications:
                 if med.end_date is None:  # 只显示当前用药
                     context_parts.append(f"- {med.drug_name}: {med.dosage}, {med.frequency}")
-        
+
         # 药物-食物交互警告
         if interactions:
-            context_parts.extend([
-                "",
-                f"### 药物-食物交互警告",
-            ])
+            context_parts.extend(
+                [
+                    "",
+                    "### 药物-食物交互警告",
+                ]
+            )
             for interaction in interactions:
                 context_parts.append(f"- {interaction['drug_category']}: {interaction['warning']}")
-        
+
         return "\n".join(context_parts)
-    
+
     def _generate_fallback_advice(
         self,
         lipid_result: LipidAbnormalityResult,
         glucose_result: GlucoseAbnormalityResult,
-        interactions: List[dict],
+        interactions: list[dict],
     ) -> str:
         """生成降级建议（当 LLM 不可用时）
-        
+
         Args:
             lipid_result: 血脂检测结果
             glucose_result: 血糖检测结果
             interactions: 药物-食物交互列表
-        
+
         Returns:
             基础建议文本
         """
         advice_parts = []
-        
+
         if lipid_result.is_abnormal:
-            advice_parts.append("**血脂管理建议**: 减少饱和脂肪摄入，增加膳食纤维，每周食用2-3次深海鱼。")
-        
+            advice_parts.append(
+                "**血脂管理建议**: 减少饱和脂肪摄入，增加膳食纤维，每周食用2-3次深海鱼。"
+            )
+
         if glucose_result.is_abnormal:
-            advice_parts.append("**血糖控制建议**: 选择低GI食物，控制总碳水化合物摄入，保持规律进餐。")
-        
+            advice_parts.append(
+                "**血糖控制建议**: 选择低GI食物，控制总碳水化合物摄入，保持规律进餐。"
+            )
+
         if interactions:
             advice_parts.append("**用药期间注意**: 请留意药物-食物交互警告，避免影响药效的食物。")
-        
+
         if not advice_parts:
-            advice_parts.append("**均衡饮食建议**: 保持膳食多样化，蔬果充足，适量蛋白质，控制油盐糖。")
-        
+            advice_parts.append(
+                "**均衡饮食建议**: 保持膳食多样化，蔬果充足，适量蛋白质，控制油盐糖。"
+            )
+
         return "\n\n".join(advice_parts)

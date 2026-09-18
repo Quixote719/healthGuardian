@@ -7,25 +7,24 @@ Neuropsychology_Agent 负责基于知识图谱检索心理神经免疫学知识�
 Requirements: 8.1-8.8
 """
 
-from typing import List, Optional
+import json
 
 from app.agents.base import BaseAgent
 from app.agents.health_analyzer import (
-    StressInterventionLevel,
-    get_stress_intervention_level,
-    evaluate_sleep_duration,
     SleepEvaluation,
+    StressInterventionLevel,
+    evaluate_sleep_duration,
+    get_stress_intervention_level,
 )
 from app.agents.risk_detector import (
     detect_prohibited_keywords,
     get_professional_help_suggestion,
 )
 from app.models.action_item import ActionCategory, ActionItem, Priority, RiskLevel
-from app.models.state import HealthState
+from app.models.state import HealthState, NodeExecutionStatus
+from app.services.llm import get_llm_service
 from app.tools.graph_rag import GraphRAG
 from app.tools.rag_interface import RAGResult
-from app.services.llm import get_llm_service
-
 
 # 干预类型标签
 HARDWARE_INTERVENTION_LABEL = "硬件层干预"
@@ -181,13 +180,13 @@ SLEEP_INTERVENTIONS = {
 
 class NeuropsychologyAgent(BaseAgent):
     """神经心理调节专家智能体
-    
+
     负责基于知识图谱检索心理神经免疫学知识，根据用户的压力等级
     和睡眠时长生成个性化的神经心理干预建议。
-    
+
     Attributes:
         _graph_rag: Graph RAG 检索工具实例（可选）
-    
+
     Requirements:
         - 8.1: 调用 Graph_RAG 检索心理神经免疫学知识图谱
         - 8.2: 根据压力等级匹配干预策略
@@ -197,26 +196,26 @@ class NeuropsychologyAgent(BaseAgent):
         - 8.6: 将响应结果写入 Health_State 的 expert_responses 字段
         - 8.7: 检测禁止关键词，拒绝提供干预并返回建议
         - 8.8: Graph_RAG 检索失败时基于内置知识生成通用建议
-    
+
     Example:
         >>> agent = NeuropsychologyAgent()
         >>> state = await agent.process(initial_state)
         >>> print(state["expert_responses"]["neuropsychology"])
     """
-    
-    def __init__(self, graph_rag: Optional[GraphRAG] = None):
+
+    def __init__(self, graph_rag: GraphRAG | None = None):
         """初始化神经心理智能体
-        
+
         Args:
             graph_rag: Graph RAG 检索工具实例，如果为 None 则使用内置知识
         """
         self._graph_rag = graph_rag
-    
+
     @property
     def name(self) -> str:
         """智能体名称"""
         return "Neuropsychology_Agent"
-    
+
     def get_system_prompt(self) -> str:
         """获取系统提示词"""
         return """你是一位专业的神经心理调节专家，专注于心理神经免疫学领域。
@@ -233,61 +232,84 @@ class NeuropsychologyAgent(BaseAgent):
 - 高压力状态（7-10级）需要标记"需关注"并建议专业支持
 - 所有建议应基于科学证据，并注明干预类型（硬件层/软件层）
 """
-    
+
     async def process(self, state: HealthState) -> HealthState:
         """处理状态并生成神经心理干预建议
-        
-        如果没有用户画像，则只根据用户查询生成通用建议。
-        
+
+        从 Health_State 读取用户画像和查询，调用 LLM 生成个性化神经心理建议。
+        LLM 返回结构化 JSON，直接驱动 action_items 生成。
+
         Args:
             state: 当前的 LangGraph 全局状态
-        
+
         Returns:
             更新后的状态，包含神经心理干预建议
-        
+
         Requirements:
             - 8.1-8.8: 完整的神经心理干预流程
         """
+        # 更新节点执行状态
+        if "node_execution_status" not in state:
+            state["node_execution_status"] = {}
+        state["node_execution_status"][self.name] = NodeExecutionStatus.RUNNING
+
         # 初始化 expert_responses 如果不存在
         if "expert_responses" not in state:
             state["expert_responses"] = {}
-        
+
         # 获取用户查询文本
         user_query = state.get("user_query", "")
-        
+
         # Requirement 8.7: 检测禁止关键词
         is_prohibited, prohibited_keywords = detect_prohibited_keywords(user_query)
         if is_prohibited:
             professional_help = get_professional_help_suggestion()
-            state["expert_responses"]["neuropsychology"] = (
-                f"检测到敏感内容（{', '.join(prohibited_keywords)}），"
-                f"无法提供神经心理干预建议。\n\n{professional_help}"
+            state["expert_responses"]["neuropsychology"] = json.dumps(
+                {
+                    "prohibited": True,
+                    "message": f"检测到敏感内容（{', '.join(prohibited_keywords)}），无法提供神经心理干预建议。",
+                    "professional_help": professional_help,
+                    "action_items": [],
+                },
+                ensure_ascii=False,
             )
+            state["node_execution_status"][self.name] = NodeExecutionStatus.COMPLETED
             return state
-        
+
         # 获取用户画像（可能为 None）
         user_profile = state.get("user_profile")
-        
+
         # 初始化变量
         stress_result = None
         sleep_result = None
         rag_content = ""
-        rag_note = ""
-        action_items: List[ActionItem] = []
-        
+        analysis_notes: list[str] = []
+        action_items: list[ActionItem] = []
+        deep_insight = ""
+
         # 如果有用户画像，进行个性化分析
         if user_profile is not None:
             # 获取压力等级和睡眠时长
             lifestyle = user_profile.lifestyle
             stress_level = lifestyle.stress_level
             sleep_duration = lifestyle.sleep_duration
-            
+
             # Requirement 8.2: 根据压力等级匹配干预策略
             stress_result = get_stress_intervention_level(stress_level)
-            
+            analysis_notes.append(
+                f"压力等级: {stress_level}级, 干预策略: {stress_result.level.value}"
+            )
+
             # Requirement 8.3: 评估睡眠时长
             sleep_result = evaluate_sleep_duration(sleep_duration)
-            
+            analysis_notes.append(f"睡眠评估: {sleep_result.evaluation.value}")
+
+            if stress_result.requires_attention:
+                analysis_notes.append("⚠️ 高压力状态，建议专业支持")
+
+            if sleep_result.needs_priority_intervention:
+                analysis_notes.append("⚠️ 睡眠不足，需优先干预")
+
             # Requirement 8.1, 8.8: 尝试调用 Graph RAG 检索
             if self._graph_rag is not None:
                 try:
@@ -298,26 +320,7 @@ class NeuropsychologyAgent(BaseAgent):
                     )
                     rag_content = self._extract_rag_content(rag_results)
                 except Exception:
-                    rag_note = "（未检索到专业知识库内容，基于内置知识生成建议）"
-            else:
-                rag_note = "（未检索到专业知识库内容，基于内置知识生成建议）"
-            
-            # 生成干预措施
-            # Requirement 8.3: 睡眠异常时优先生成睡眠干预
-            if sleep_result.needs_priority_intervention:
-                action_items.extend(
-                    self._create_sleep_interventions("insufficient", stress_result)
-                )
-            elif sleep_result.evaluation == SleepEvaluation.EXCESSIVE:
-                action_items.extend(
-                    self._create_sleep_interventions("excessive", stress_result)
-                )
-            
-            # Requirement 8.2, 8.4: 根据压力等级生成干预措施
-            intervention_key = self._get_intervention_key(stress_result.level)
-            action_items.extend(
-                self._create_stress_interventions(intervention_key, stress_result)
-            )
+                    pass
         else:
             # 没有用户画像时，尝试只根据查询检索 RAG
             if self._graph_rag is not None and user_query:
@@ -330,10 +333,7 @@ class NeuropsychologyAgent(BaseAgent):
                     rag_content = self._extract_rag_content(rag_results)
                 except Exception:
                     pass
-        
-        # 确保不超过合理数量（去重后取前5个）
-        action_items = self._deduplicate_actions(action_items)[:5]
-        
+
         # 构建用户健康上下文
         if user_profile is not None:
             user_context = self._build_user_context(
@@ -343,84 +343,82 @@ class NeuropsychologyAgent(BaseAgent):
             )
         else:
             user_context = "（用户未提供个人健康档案，请提供通用的神经心理调节建议）"
-        
-        # 调用 LLM 生成个性化建议
-        llm_response = ""
+
+        # 调用 LLM 生成结构化建议（核心改动：LLM 驱动 action_items）
         if user_query:
             try:
                 llm_service = get_llm_service()
-                llm_response = await llm_service.generate_health_advice(
+                llm_result = await llm_service.generate_structured_advice(
+                    agent_type="neuropsychology",
                     system_prompt=self.get_system_prompt(),
                     user_query=user_query,
                     user_context=user_context,
                     rag_knowledge=rag_content,
                 )
+
+                # 提取 deep_insight
+                deep_insight = llm_result.get("deep_insight", "")
+
+                # 解析 LLM 返回的 action_items
+                for item_data in llm_result.get("action_items", []):
+                    try:
+                        # 确保 category 是神经心理
+                        item_data["category"] = "神经心理"
+                        action_items.append(ActionItem(**item_data))
+                    except Exception:
+                        # 跳过无效的 action item
+                        continue
+
             except Exception as e:
-                # LLM 调用失败
-                llm_response = f"抱歉，服务暂时不可用，请稍后重试。（错误：{type(e).__name__}）"
-        
-        # 构建响应文本
-        response_parts = []
-        
-        # LLM 生成的个性化建议（如果有）
-        if llm_response:
-            response_parts.append(f"## 针对您问题的建议\n")
-            response_parts.append(llm_response)
-            response_parts.append("")
-        
-        # 如果有用户画像，显示评估结果
-        if user_profile is not None and stress_result and sleep_result:
-            lifestyle = user_profile.lifestyle
-            
-            # 压力评估结果
-            response_parts.append(f"## 压力状态评估\n")
-            response_parts.append(f"- 压力等级：{lifestyle.stress_level}级")
-            response_parts.append(f"- 干预策略：{stress_result.level.value}")
-            response_parts.append(f"- {stress_result.description}")
-            if stress_result.requires_attention:
-                response_parts.append(f"- ⚠️ **需要关注**：建议尽快寻求专业心理支持")
-            
-            # 睡眠评估结果
-            response_parts.append(f"\n## 睡眠状态评估\n")
-            response_parts.append(f"- 睡眠时长：{lifestyle.sleep_duration}小时")
-            response_parts.append(f"- 评估结果：{sleep_result.evaluation.value}")
-            response_parts.append(f"- {sleep_result.description}")
-            
-            # RAG 检索内容（如果有）
-            if rag_content:
-                response_parts.append(f"\n## 知识图谱检索结果\n")
-                response_parts.append(rag_content)
-            
-            if rag_note:
-                response_parts.append(f"\n{rag_note}")
-            
-            # 干预措施摘要
-            if action_items:
-                response_parts.append(f"\n## 干预措施摘要\n")
-                response_parts.append(f"共生成 {len(action_items)} 项神经心理干预措施：")
-                
-                hardware_count = sum(
-                    1 for item in action_items 
-                    if HARDWARE_INTERVENTION_LABEL in item.description
+                # LLM 调用失败，直接返回错误状态
+                error_response = {
+                    "has_user_profile": user_profile is not None,
+                    "error": True,
+                    "error_type": type(e).__name__,
+                    "error_message": f"LLM 服务不可用：{type(e).__name__}",
+                    "action_items": [],
+                }
+                state["expert_responses"]["neuropsychology"] = json.dumps(
+                    error_response, ensure_ascii=False
                 )
-                software_count = len(action_items) - hardware_count
-                response_parts.append(f"- 硬件层干预：{hardware_count} 项")
-                response_parts.append(f"- 软件层干预：{software_count} 项")
-        else:
-            response_parts.append("\n> 注：本建议基于通用神经心理知识生成。如需获得个性化建议，请提供您的健康档案信息。")
-        
+                state["node_execution_status"][self.name] = NodeExecutionStatus.FAILED
+                return state
+
+        # 确保不超过合理数量（去重后取前5个）
+        action_items = self._deduplicate_actions(action_items)[:5]
+
+        # 构建响应数据 (Requirement 8.6)
+        response_data = {
+            "has_user_profile": user_profile is not None,
+            "analysis_summary": "; ".join(analysis_notes)
+            if analysis_notes
+            else "未提供个人健康档案",
+            "deep_insight": deep_insight,
+            "stress_assessment": {
+                "level": stress_result.level.value if stress_result else None,
+                "description": stress_result.description if stress_result else None,
+                "requires_attention": stress_result.requires_attention if stress_result else False,
+            }
+            if stress_result
+            else None,
+            "sleep_assessment": {
+                "evaluation": sleep_result.evaluation.value if sleep_result else None,
+                "description": sleep_result.description if sleep_result else None,
+                "needs_priority_intervention": sleep_result.needs_priority_intervention
+                if sleep_result
+                else False,
+            }
+            if sleep_result
+            else None,
+            "action_items": [item.model_dump() for item in action_items],
+        }
+
         # Requirement 8.6: 将响应结果写入 expert_responses
-        state["expert_responses"]["neuropsychology"] = "\n".join(response_parts)
-        
-        # 将 action_items 也存储到状态中（供 Synthesis_Agent 使用）
-        if "neuropsychology_actions" not in state:
-            state["neuropsychology_actions"] = []
-        state["neuropsychology_actions"] = [
-            item.model_dump() for item in action_items
-        ]
-        
+        state["expert_responses"]["neuropsychology"] = json.dumps(response_data, ensure_ascii=False)
+        state["node_execution_status"][self.name] = NodeExecutionStatus.COMPLETED
+
         return state
-    
+
     def _build_user_context(
         self,
         user_profile,
@@ -428,57 +426,57 @@ class NeuropsychologyAgent(BaseAgent):
         sleep_result,
     ) -> str:
         """构建用户健康上下文描述
-        
+
         Args:
             user_profile: 用户画像
             stress_result: 压力评估结果
             sleep_result: 睡眠评估结果
-        
+
         Returns:
             用户健康上下文的文本描述
         """
         lifestyle = user_profile.lifestyle
-        
+
         context_parts = [
-            f"### 基本信息",
+            "### 基本信息",
             f"- 年龄: {user_profile.age}岁",
             f"- 性别: {user_profile.gender}",
             "",
-            f"### 生活方式",
+            "### 生活方式",
             f"- 睡眠时长: {lifestyle.sleep_duration}小时",
             f"- 压力等级: {lifestyle.stress_level}/10",
             f"- 运动频率: {lifestyle.exercise_frequency}",
             "",
-            f"### 压力状态评估",
+            "### 压力状态评估",
             f"- 压力等级: {lifestyle.stress_level}级",
             f"- 干预策略: {stress_result.level.value}",
             f"- {stress_result.description}",
         ]
-        
+
         if stress_result.requires_attention:
-            context_parts.append(f"- ⚠️ 需要关注：建议寻求专业心理支持")
-        
-        context_parts.extend([
-            "",
-            f"### 睡眠状态评估",
-            f"- 睡眠时长: {lifestyle.sleep_duration}小时",
-            f"- 评估结果: {sleep_result.evaluation.value}",
-            f"- {sleep_result.description}",
-        ])
-        
+            context_parts.append("- ⚠️ 需要关注：建议寻求专业心理支持")
+
+        context_parts.extend(
+            [
+                "",
+                "### 睡眠状态评估",
+                f"- 睡眠时长: {lifestyle.sleep_duration}小时",
+                f"- 评估结果: {sleep_result.evaluation.value}",
+                f"- {sleep_result.description}",
+            ]
+        )
+
         if sleep_result.needs_priority_intervention:
-            context_parts.append(f"- ⚠️ 需要优先干预睡眠问题")
-        
+            context_parts.append("- ⚠️ 需要优先干预睡眠问题")
+
         return "\n".join(context_parts)
-    
-    def _get_intervention_key(
-        self, level: StressInterventionLevel
-    ) -> str:
+
+    def _get_intervention_key(self, level: StressInterventionLevel) -> str:
         """根据压力干预等级获取干预措施键名
-        
+
         Args:
             level: 压力干预等级
-        
+
         Returns:
             干预措施字典的键名
         """
@@ -488,23 +486,23 @@ class NeuropsychologyAgent(BaseAgent):
             return "structured"
         else:  # PROFESSIONAL_SUPPORT
             return "professional"
-    
+
     def _create_stress_interventions(
         self,
         intervention_key: str,
         stress_result,
-    ) -> List[ActionItem]:
+    ) -> list[ActionItem]:
         """创建压力相关的干预措施
-        
+
         Args:
             intervention_key: 干预措施键名 ("daily", "structured", "professional")
             stress_result: 压力干预结果
-        
+
         Returns:
             ActionItem 列表
         """
         action_items = []
-        
+
         # 确定优先级和风险等级
         if stress_result.requires_attention:
             priority = Priority.HIGH
@@ -515,7 +513,7 @@ class NeuropsychologyAgent(BaseAgent):
         else:
             priority = Priority.LOW if intervention_key == "daily" else Priority.HIGH
             risk_level = RiskLevel.LOW
-        
+
         # 添加硬件层干预
         hardware_items = HARDWARE_INTERVENTIONS.get(intervention_key, [])
         for item_data in hardware_items:
@@ -530,7 +528,7 @@ class NeuropsychologyAgent(BaseAgent):
                     duration=item_data["duration"],
                 )
             )
-        
+
         # 添加软件层干预
         software_items = SOFTWARE_INTERVENTIONS.get(intervention_key, [])
         for item_data in software_items:
@@ -545,29 +543,29 @@ class NeuropsychologyAgent(BaseAgent):
                     duration=item_data["duration"],
                 )
             )
-        
+
         return action_items
-    
+
     def _create_sleep_interventions(
         self,
         sleep_type: str,
         stress_result,
-    ) -> List[ActionItem]:
+    ) -> list[ActionItem]:
         """创建睡眠相关的干预措施
-        
+
         Args:
             sleep_type: 睡眠类型 ("insufficient" or "excessive")
             stress_result: 压力干预结果
-        
+
         Returns:
             ActionItem 列表
         """
         action_items = []
-        
+
         # 睡眠干预优先级较高
         priority = Priority.HIGH if sleep_type == "insufficient" else Priority.MEDIUM
         risk_level = RiskLevel.LOW
-        
+
         sleep_items = SLEEP_INTERVENTIONS.get(sleep_type, [])
         for item_data in sleep_items:
             action_items.append(
@@ -581,39 +579,39 @@ class NeuropsychologyAgent(BaseAgent):
                     duration=item_data["duration"],
                 )
             )
-        
+
         return action_items
-    
-    def _extract_rag_content(self, rag_results: List[RAGResult]) -> str:
+
+    def _extract_rag_content(self, rag_results: list[RAGResult]) -> str:
         """从 RAG 结果中提取内容
-        
+
         Args:
             rag_results: RAG 检索结果列表
-        
+
         Returns:
             提取的内容文本
         """
         if not rag_results:
             return ""
-        
+
         content_parts = []
         for result in rag_results:
             # 检查是否有错误
             if result.metadata.get("error_type"):
                 continue
-            
+
             if result.content:
                 content_parts.append(result.content)
-            
+
             # 提取实体和关系信息
             entities = result.metadata.get("entities", [])
             relations = result.metadata.get("relations", [])
-            
+
             if entities:
                 entity_names = [e.get("name", "") for e in entities if e.get("name")]
                 if entity_names:
                     content_parts.append(f"相关概念：{', '.join(entity_names)}")
-            
+
             if relations:
                 rel_strs = []
                 for r in relations:
@@ -623,29 +621,27 @@ class NeuropsychologyAgent(BaseAgent):
                     if source and target and rel_type:
                         rel_strs.append(f"{source} → {rel_type} → {target}")
                 if rel_strs:
-                    content_parts.append(f"知识关系：\n- " + "\n- ".join(rel_strs))
-        
+                    content_parts.append("知识关系：\n- " + "\n- ".join(rel_strs))
+
         return "\n\n".join(content_parts)
-    
-    def _deduplicate_actions(
-        self, action_items: List[ActionItem]
-    ) -> List[ActionItem]:
+
+    def _deduplicate_actions(self, action_items: list[ActionItem]) -> list[ActionItem]:
         """对干预措施进行去重
-        
+
         基于 title 进行去重，保留第一个出现的。
-        
+
         Args:
             action_items: 原始干预措施列表
-        
+
         Returns:
             去重后的干预措施列表
         """
         seen_titles = set()
         unique_items = []
-        
+
         for item in action_items:
             if item.title not in seen_titles:
                 seen_titles.add(item.title)
                 unique_items.append(item)
-        
+
         return unique_items

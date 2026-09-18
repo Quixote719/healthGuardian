@@ -88,7 +88,7 @@ poetry run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 cd frontend
 
 # 安装依赖
-npm install
+pnpm install
 
 # 复制环境变量文件 (如果不存在)
 cp .env.example .env.local
@@ -97,7 +97,7 @@ cp .env.example .env.local
 # NEXT_PUBLIC_API_URL=http://localhost:8000
 
 # 启动前端服务 (开发模式)
-npm run dev
+pnpm dev
 ```
 
 前端服务将在 http://localhost:3000 运行
@@ -187,16 +187,19 @@ poetry run mypy app
 cd frontend
 
 # 开发模式
-npm run dev
+pnpm dev
 
 # 构建生产版本
-npm run build
+pnpm build
 
 # 运行生产版本
-npm run start
+pnpm start
 
 # 代码检查
-npm run lint
+pnpm lint
+
+# 运行 E2E 测试
+pnpm test:e2e
 ```
 
 ## 环境变量说明

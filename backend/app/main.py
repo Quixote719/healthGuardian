@@ -7,20 +7,20 @@ Design: Components and Interfaces - FastAPI 应用入口
 """
 
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
-from typing import Dict, Any
+from datetime import UTC, datetime
+from typing import Any
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import ValidationError as PydanticValidationError
 
 from app import __version__
-from app.core.exceptions import HealthSystemError
 from app.core.error_handler import (
+    generic_exception_handler,
     health_system_exception_handler,
     pydantic_validation_exception_handler,
-    generic_exception_handler,
 )
+from app.core.exceptions import HealthSystemError
 
 
 @asynccontextmanager
@@ -32,9 +32,9 @@ async def lifespan(app: FastAPI):
     # Startup: 初始化资源
     # 这里可以添加数据库连接、RAG 工具初始化等
     print("🚀 Health Longevity Multi-Agent System starting up...")
-    
+
     yield
-    
+
     # Shutdown: 清理资源
     print("👋 Health Longevity Multi-Agent System shutting down...")
 
@@ -70,25 +70,25 @@ app.add_exception_handler(Exception, generic_exception_handler)
 
 # 健康检查端点
 @app.get("/health", tags=["Health"])
-async def health_check() -> Dict[str, Any]:
+async def health_check() -> dict[str, Any]:
     """
     健康检查端点
     Health check endpoint for monitoring and load balancers
-    
+
     Returns:
         dict: 包含服务状态、版本和时间戳的健康状态信息
     """
     return {
         "status": "healthy",
         "version": __version__,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "service": "health-longevity-multi-agent-system"
+        "timestamp": datetime.now(UTC).isoformat(),
+        "service": "health-longevity-multi-agent-system",
     }
 
 
 # 根路径端点
 @app.get("/", tags=["Root"])
-async def root() -> Dict[str, str]:
+async def root() -> dict[str, str]:
     """
     根路径端点
     Root endpoint with welcome message
@@ -96,7 +96,7 @@ async def root() -> Dict[str, str]:
     return {
         "message": "Welcome to Health Longevity Multi-Agent System",
         "version": __version__,
-        "docs": "/docs"
+        "docs": "/docs",
     }
 
 
@@ -109,10 +109,5 @@ app.include_router(confirm.router, prefix="/api", tags=["Confirm"])
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(
-        "app.main:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=True,
-        log_level="info"
-    )
+
+    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True, log_level="info")

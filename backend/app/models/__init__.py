@@ -3,6 +3,32 @@ Pydantic 数据模型模块
 包含 User_Profile, Action_Item, Final_Report, Health_State 等核心数据模型
 """
 
+from app.models.action_item import (
+    ActionCategory,
+    ActionItem,
+    Priority,
+    RiskLevel,
+)
+from app.models.api import (
+    ChatRequest,
+    ChatResponse,
+    ConfirmRequest,
+    ConfirmResponse,
+    ErrorEventData,
+    PauseEventData,
+    StatusEventData,
+)
+from app.models.final_report import (
+    ConfirmationStatus,
+    FinalReport,
+)
+from app.models.state import (
+    ErrorInfo,
+    HealthState,
+    NodeExecutionStatus,
+    SubTask,
+    TargetAgent,
+)
 from app.models.user_profile import (
     BloodGlucose,
     BloodLipids,
@@ -16,32 +42,6 @@ from app.models.user_profile import (
     MedicationFrequency,
     PhysicalExamination,
     UserProfile,
-)
-from app.models.action_item import (
-    ActionCategory,
-    ActionItem,
-    Priority,
-    RiskLevel,
-)
-from app.models.final_report import (
-    ConfirmationStatus,
-    FinalReport,
-)
-from app.models.state import (
-    ErrorInfo,
-    HealthState,
-    NodeExecutionStatus,
-    SubTask,
-    TargetAgent,
-)
-from app.models.api import (
-    ChatRequest,
-    ChatResponse,
-    ConfirmRequest,
-    ConfirmResponse,
-    ErrorEventData,
-    PauseEventData,
-    StatusEventData,
 )
 
 __all__ = [

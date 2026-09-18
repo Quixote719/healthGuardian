@@ -51,9 +51,7 @@ class ActionItem(BaseModel):
 
     category: ActionCategory = Field(..., description="干预措施类别")
     title: str = Field(..., min_length=1, max_length=100, description="干预措施名称")
-    description: str = Field(
-        ..., min_length=1, max_length=2000, description="干预措施详细说明"
-    )
+    description: str = Field(..., min_length=1, max_length=2000, description="干预措施详细说明")
     frequency: str = Field(..., min_length=1, max_length=200, description="执行频率")
     priority: Priority = Field(..., description="优先级")
     risk_level: RiskLevel = Field(..., description="风险等级")
@@ -63,7 +61,7 @@ class ActionItem(BaseModel):
     @classmethod
     def validate_duration(cls, v: str) -> str:
         """验证 duration 格式必须为: 正整数+时间单位(天/周/月)
-        
+
         正整数定义: 大于0的整数，不允许前导零
         有效示例: "7天", "2周", "3月", "14 天"
         无效示例: "0天", "01天", "-1周"
@@ -72,7 +70,9 @@ class ActionItem(BaseModel):
         # \d*: 后续可以是0个或多个数字（允许10, 100等）
         pattern = r"^[1-9]\d*\s*(天|周|月)$"
         if not re.match(pattern, v):
-            raise ValueError("duration 格式必须为: 正整数+时间单位(天/周/月)，例如: '12周'、'30天'、'3月'")
+            raise ValueError(
+                "duration 格式必须为: 正整数+时间单位(天/周/月)，例如: '12周'、'30天'、'3月'"
+            )
         return v
 
     model_config = {
