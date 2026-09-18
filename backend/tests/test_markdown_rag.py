@@ -5,12 +5,9 @@ Markdown RAG 检索工具单元测试
 Requirements: 11.1-11.6
 """
 
-from typing import Any, List
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
-from app.tools.rag_interface import RAGResult
 
 
 class TestMarkdownRAGImports:
@@ -559,7 +556,7 @@ class TestMarkdownRAGBuildIndex:
             "app.tools.markdown_rag.VectorStoreIndex"
         ) as mock_index_class:
             mock_index_class.from_documents.return_value = MagicMock()
-            result = await rag.build_index(
+            await rag.build_index(
                 [mock_doc],
                 category=KnowledgeCategory.NUTRITION,
             )
@@ -690,7 +687,7 @@ class TestMarkdownRAGIsAvailableProperty:
         """测试两个依赖都可用时返回 True"""
         from app.tools.markdown_rag import MarkdownRAG
 
-        rag = MarkdownRAG(collection_name="test")
+        MarkdownRAG(collection_name="test")
 
         with patch("app.tools.markdown_rag.CHROMADB_AVAILABLE", True):
             with patch("app.tools.markdown_rag.LLAMA_INDEX_AVAILABLE", True):

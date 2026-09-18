@@ -10,10 +10,9 @@ packages = [{include = "app"}]
 python = "^3.11,<3.14"
 # Web Framework
 fastapi = "^0.141.0"
-uvicorn = {extras = ["standard"], version = "^0.52.0"}
+uvicorn = "^0.53.0"
 # Data Validation
 pydantic = "^2.13.0"
-pydantic-settings = "^2.10.0"
 # Multi-Agent Orchestration
 langgraph = "^1.2.0"
 langchain-core = "^1.6.0"
@@ -27,20 +26,17 @@ chromadb = "^1.5.0"
 neo4j = "^5.28.0"
 # Async Support
 httpx = "^0.28.0"
-aiofiles = "^24.1.0"
 # Utilities
-python-dotenv = "^1.1.0"
-python-multipart = "^0.0.20"
 
 [tool.poetry.group.dev.dependencies]
 # Testing
-pytest = "^8.4.0"
+pytest = "^9.1.1"
 pytest-asyncio = "^1.0.0"
-pytest-cov = "^6.1.0"
+pytest-cov = "^7.1.0"
 hypothesis = "^6.130.0"
 # Linting & Formatting
-ruff = "^0.15.0"
-mypy = "^1.15.0"
+ruff = "^0.16.8"
+mypy = "^2.3.1"
 # HTTP Client for Testing
 httpx = "^0.28.0"
 
@@ -56,12 +52,13 @@ line-length = 100
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "W", "UP", "B", "C4", "SIM"]
-ignore = ["E501"]
+ignore = ["E501", "SIM105", "SIM117", "E721"]
 
 [tool.mypy]
 python_version = "3.11"
 strict = true
 ignore_missing_imports = true
+exclude = [".venv"]
 
 [build-system]
 requires = ["poetry-core"]

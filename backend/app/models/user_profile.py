@@ -6,12 +6,12 @@ Requirements: 1.1-1.7
 """
 
 from datetime import date
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
 
-class Gender(str, Enum):
+class Gender(StrEnum):
     """性别枚举"""
 
     MALE = "男"
@@ -19,7 +19,7 @@ class Gender(str, Enum):
     OTHER = "其他"
 
 
-class DiseaseStatus(str, Enum):
+class DiseaseStatus(StrEnum):
     """疾病状态枚举"""
 
     CURED = "已治愈"
@@ -27,7 +27,7 @@ class DiseaseStatus(str, Enum):
     CHRONIC = "慢性管理"
 
 
-class MedicationFrequency(str, Enum):
+class MedicationFrequency(StrEnum):
     """用药频率枚举"""
 
     ONCE_DAILY = "每日一次"
@@ -37,7 +37,7 @@ class MedicationFrequency(str, Enum):
     OTHER = "其他"
 
 
-class ExerciseFrequency(str, Enum):
+class ExerciseFrequency(StrEnum):
     """运动频率枚举"""
 
     NEVER = "从不"
@@ -46,7 +46,7 @@ class ExerciseFrequency(str, Enum):
     DAILY = "每天"
 
 
-class DietHabit(str, Enum):
+class DietHabit(StrEnum):
     """饮食习惯枚举"""
 
     BALANCED = "荤素均衡"

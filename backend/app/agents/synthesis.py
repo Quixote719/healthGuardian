@@ -542,15 +542,13 @@ def generate_follow_up_plan(
 
     # 根据用户画像添加特定指标
     if user_profile is not None:
-        if user_profile.physical_examination.blood_lipids.ldl >= 3.4:
-            if "血脂四项" not in " ".join(indicators):
-                indicators.append("LDL 胆固醇复查")
+        if user_profile.physical_examination.blood_lipids.ldl >= 3.4 and "血脂四项" not in " ".join(indicators):
+            indicators.append("LDL 胆固醇复查")
 
-        if user_profile.physical_examination.blood_glucose.fasting_glucose >= 6.1:
-            if "血糖指标" not in " ".join(indicators):
-                indicators.append("空腹血糖复查")
+        if user_profile.physical_examination.blood_glucose.fasting_glucose >= 6.1 and "血糖指标" not in " ".join(indicators):
+            indicators.append("空腹血糖复查")
 
-    for i, indicator in enumerate(indicators[:5], 1):  # 最多5个指标
+    for _i, indicator in enumerate(indicators[:5], 1):  # 最多5个指标
         parts.append(f"- {indicator}")
 
     return "\n".join(parts)
@@ -569,7 +567,7 @@ def extract_expert_deep_insights(expert_responses: dict) -> tuple[dict[str, str]
     """
     insights = {}
     errors = []
-    
+
     # 只处理这三个专家的响应
     expert_keys = ["nutrition", "rehabilitation", "neuropsychology"]
 
@@ -580,10 +578,7 @@ def extract_expert_deep_insights(expert_responses: dict) -> tuple[dict[str, str]
 
         # 尝试解析 JSON 响应
         try:
-            if isinstance(response, str):
-                data = json.loads(response)
-            else:
-                data = response
+            data = json.loads(response) if isinstance(response, str) else response
 
             if isinstance(data, dict):
                 # 检查是否有错误
@@ -730,13 +725,11 @@ def generate_deep_insight(
     # 从专家分析中提取关键词进行关联
     all_insights_text = " ".join(expert_insights.values()).lower()
 
-    if "血脂" in all_insights_text or "胆固醇" in all_insights_text:
-        if "运动" in all_insights_text or "有氧" in all_insights_text:
-            correlations.append("血脂管理与运动密切相关，规律有氧运动可辅助改善血脂水平")
+    if ("血脂" in all_insights_text or "胆固醇" in all_insights_text) and ("运动" in all_insights_text or "有氧" in all_insights_text):
+        correlations.append("血脂管理与运动密切相关，规律有氧运动可辅助改善血脂水平")
 
-    if "睡眠" in all_insights_text:
-        if "代谢" in all_insights_text or "血糖" in all_insights_text:
-            correlations.append("睡眠质量与代谢健康密切相关，改善睡眠有助于血糖和血脂控制")
+    if "睡眠" in all_insights_text and ("代谢" in all_insights_text or "血糖" in all_insights_text):
+        correlations.append("睡眠质量与代谢健康密切相关，改善睡眠有助于血糖和血脂控制")
 
     if "压力" in all_insights_text or "皮质醇" in all_insights_text:
         correlations.append(

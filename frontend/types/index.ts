@@ -35,13 +35,7 @@ export type ConnectionStatus = "connected" | "disconnected" | "reconnecting";
 /**
  * SSE 事件类型 (Requirements 13.4)
  */
-export type SSEEventType =
-  | "status"
-  | "intermediate"
-  | "report"
-  | "pause"
-  | "error"
-  | "heartbeat";
+export type SSEEventType = "status" | "intermediate" | "report" | "pause" | "error" | "heartbeat";
 
 // ============================================
 // 数据模型接口
@@ -239,7 +233,12 @@ export interface ConfirmResponse {
  */
 export interface APIErrorResponse {
   /** 错误类型 */
-  error_type: "session_not_found" | "session_not_paused" | "session_timeout" | "validation_error" | "internal_error";
+  error_type:
+    | "session_not_found"
+    | "session_not_paused"
+    | "session_timeout"
+    | "validation_error"
+    | "internal_error";
   /** 错误消息 */
   message: string;
 }

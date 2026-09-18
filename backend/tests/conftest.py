@@ -2,8 +2,8 @@
 Pytest 配置和共享 fixtures
 """
 
+
 import pytest
-from typing import Generator
 
 
 @pytest.fixture(scope="session")

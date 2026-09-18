@@ -6,15 +6,12 @@ Graph RAG 检索工具单元测试
 Requirements: 12.1-12.7
 """
 
-import asyncio
 import sys
-from typing import Any, List
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from app.tools.graph_rag import EntityInfo, GraphRAG, GraphRAGResult, RelationInfo
-from app.tools.rag_interface import RAGResult
 
 
 def create_mock_query_engine(response):
@@ -477,7 +474,7 @@ class TestGraphRAGBuildIndex:
         graph_rag._graph_store = MagicMock()
 
         # Patch the llama_index import within build_index
-        mock_kg_index = MagicMock()
+        MagicMock()
         with patch.dict(sys.modules, {'llama_index': MagicMock(), 'llama_index.core': MagicMock()}):
             with patch("app.tools.graph_rag.GraphRAG._lazy_init"):
                 # Manually call for empty documents (should set index to None)
@@ -505,14 +502,14 @@ class TestGraphRAGBuildIndex:
                 # Simulate the behavior for empty documents
                 graph_rag._initialized = True
                 graph_rag._graph_store = MagicMock()
-                
+
                 # For empty docs, it should call lazy_init but not build index
                 try:
                     await graph_rag.build_index([])
                 except ImportError:
                     # This is expected when llama_index is not installed
                     pass
-                
+
                 # Lazy init should have been called
                 mock_init.assert_called()
 

@@ -13,12 +13,15 @@ Requirements: 6.1-6.7
 import asyncio
 import json
 from datetime import date
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 
 import pytest
 
+from app.agents.health_analyzer import (
+    detect_glucose_abnormality,
+    detect_lipid_abnormality,
+)
 from app.agents.nutrition import (
-    DRUG_FOOD_INTERACTIONS,
     NutritionAgent,
     _detect_drug_food_interactions,
     _generate_glucose_action_items,
@@ -38,11 +41,6 @@ from app.models.user_profile import (
     PhysicalExamination,
     UserProfile,
 )
-from app.agents.health_analyzer import (
-    detect_lipid_abnormality,
-    detect_glucose_abnormality,
-)
-
 
 # ============================================================================
 # Fixtures

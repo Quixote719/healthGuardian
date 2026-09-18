@@ -13,49 +13,43 @@ Requirements: 10.1-10.3, 10.7, 10.8
 """
 
 import asyncio
-import pytest
-from datetime import date
-from unittest.mock import AsyncMock, patch, MagicMock
 
+import pytest
+
+from app.models.final_report import ConfirmationStatus, FinalReport
+from app.models.state import ErrorInfo, HealthState, NodeExecutionStatus, SubTask, TargetAgent
+from app.models.user_profile import (
+    BloodGlucose,
+    BloodLipids,
+    DietHabit,
+    ExerciseFrequency,
+    Gender,
+    Lifestyle,
+    PhysicalExamination,
+    UserProfile,
+)
 from app.workflow.graph import (
-    LANGGRAPH_AVAILABLE,
     AGENT_TIMEOUT_SECONDS,
+    LANGGRAPH_AVAILABLE,
+    controller_agent,
+    controller_node,
     create_health_workflow,
-    create_sequential_health_workflow,
     create_parallel_health_workflow,
+    create_sequential_health_workflow,
     get_compiled_workflow,
     get_persistent_workflow,
+    neuropsychology_agent,
+    neuropsychology_node,
+    nutrition_agent,
+    nutrition_node,
+    rehabilitation_agent,
+    rehabilitation_node,
     should_interrupt_after_controller,
     should_interrupt_after_synthesis,
-    with_timeout_and_error_handling,
-    controller_node,
-    nutrition_node,
-    rehabilitation_node,
-    neuropsychology_node,
-    synthesis_node,
-    controller_agent,
-    nutrition_agent,
-    rehabilitation_agent,
-    neuropsychology_agent,
     synthesis_agent,
+    synthesis_node,
+    with_timeout_and_error_handling,
 )
-from app.models.state import HealthState, SubTask, TargetAgent, ErrorInfo, NodeExecutionStatus
-from app.models.user_profile import (
-    UserProfile,
-    Gender,
-    MedicalHistory,
-    DiseaseStatus,
-    Medication,
-    MedicationFrequency,
-    BloodLipids,
-    BloodGlucose,
-    PhysicalExamination,
-    Lifestyle,
-    ExerciseFrequency,
-    DietHabit,
-)
-from app.models.final_report import FinalReport, ConfirmationStatus
-
 
 # ============================================================================
 # Test Fixtures
@@ -454,10 +448,10 @@ class TestWorkflowExecution:
     async def test_workflow_executes_controller(self, sample_initial_state):
         """Workflow should execute controller node"""
         workflow = get_compiled_workflow()
-        
+
         # Execute workflow
         result = await workflow.ainvoke(sample_initial_state, {"configurable": {"thread_id": "test_1"}})
-        
+
         # Controller should have processed the state
         assert result is not None
         # Check that controller added its response or modified state
@@ -467,7 +461,7 @@ class TestWorkflowExecution:
     async def test_workflow_handles_empty_state(self):
         """Workflow should handle empty state gracefully"""
         workflow = get_compiled_workflow()
-        
+
         result = await workflow.ainvoke({}, {"configurable": {"thread_id": "test_2"}})
         assert result is not None
 
@@ -475,7 +469,7 @@ class TestWorkflowExecution:
     async def test_workflow_handles_none_state(self):
         """Workflow should handle None state"""
         workflow = get_compiled_workflow()
-        
+
         result = await workflow.ainvoke(None, {"configurable": {"thread_id": "test_3"}})
         assert result is not None
 
@@ -520,7 +514,7 @@ class TestWorkflowIntegration:
     async def test_controller_agent_processes_state(self, sample_initial_state):
         """Controller agent should process state correctly"""
         result = await controller_agent.process(sample_initial_state)
-        
+
         # Controller should modify the state
         assert result is not None
         # Should have task_breakdown
@@ -532,12 +526,12 @@ class TestWorkflowIntegration:
     async def test_workflow_full_execution(self, sample_initial_state):
         """Test full workflow execution with sample state"""
         workflow = get_compiled_workflow()
-        
+
         result = await workflow.ainvoke(
             sample_initial_state,
             {"configurable": {"thread_id": "full_test_1"}}
         )
-        
+
         # Workflow should complete
         assert result is not None
 
@@ -553,11 +547,11 @@ class TestEdgeCases:
     def test_routing_with_minimal_state(self):
         """Routing functions should handle minimal state"""
         minimal_state: HealthState = {}
-        
+
         # Should not raise exceptions
         result1 = should_interrupt_after_controller(minimal_state)
         result2 = should_interrupt_after_synthesis(minimal_state)
-        
+
         assert result1 in ["interrupt", "parallel"]
         assert result2 in ["interrupt", "end"]
 
@@ -565,17 +559,17 @@ class TestEdgeCases:
         """Multiple workflow creations should produce consistent results"""
         workflow1 = create_sequential_health_workflow()
         workflow2 = create_sequential_health_workflow()
-        
+
         # Both should have same nodes
         assert set(workflow1.nodes.keys()) == set(workflow2.nodes.keys())
 
     def test_compiled_workflow_with_different_sessions(self):
         """Compiled workflow should handle different session IDs"""
-        workflow = get_compiled_workflow()
-        
+        get_compiled_workflow()
+
         config1 = {"configurable": {"thread_id": "session_a"}}
         config2 = {"configurable": {"thread_id": "session_b"}}
-        
+
         # Should be able to create configs for different sessions
         assert config1["configurable"]["thread_id"] != config2["configurable"]["thread_id"]
 
@@ -615,7 +609,7 @@ class TestRequirementValidation:
         # Test interrupt condition
         state_interrupt: HealthState = {"ui_interrupt_flag": True, "task_breakdown": []}
         assert should_interrupt_after_controller(state_interrupt) == "interrupt"
-        
+
         # Test continue condition
         state_continue: HealthState = {
             "ui_interrupt_flag": False,
@@ -638,7 +632,7 @@ class TestRequirementValidation:
             ),
         }
         assert should_interrupt_after_synthesis(state_confirm) == "interrupt"
-        
+
         # Test no confirmation needed
         state_no_confirm: HealthState = {
             "final_report": FinalReport(
@@ -654,11 +648,11 @@ class TestRequirementValidation:
     def test_req_10_3_checkpointer_support(self):
         """Requirement 10.3: Supports checkpointer persistence"""
         from app.workflow.graph import SqliteSaver
-        
+
         # Should be able to create checkpointer
         checkpointer = SqliteSaver.from_conn_string(":memory:")
         assert checkpointer is not None
-        
+
         # Should be able to use checkpointer in workflow
         workflow = get_compiled_workflow(checkpointer=checkpointer)
         assert workflow is not None
@@ -699,13 +693,13 @@ class TestWithTimeoutAndErrorHandling:
         """Successful agent execution should return the result"""
         async def mock_agent(state):
             return {**state, "processed": True}
-        
+
         result = await with_timeout_and_error_handling(
             agent_process_func=mock_agent,
             state=minimal_state,
             node_name="test_agent",
         )
-        
+
         assert result["processed"] is True
         assert result["node_execution_status"]["test_agent"] == NodeExecutionStatus.COMPLETED
 
@@ -714,13 +708,13 @@ class TestWithTimeoutAndErrorHandling:
         """Successful execution should set node status to COMPLETED"""
         async def mock_agent(state):
             return {**state, "done": True}
-        
+
         result = await with_timeout_and_error_handling(
             agent_process_func=mock_agent,
             state=minimal_state,
             node_name="my_agent",
         )
-        
+
         assert result["node_execution_status"]["my_agent"] == NodeExecutionStatus.COMPLETED
 
     @pytest.mark.asyncio
@@ -729,14 +723,14 @@ class TestWithTimeoutAndErrorHandling:
         async def slow_agent(state):
             await asyncio.sleep(5)  # Longer than our test timeout
             return state
-        
+
         result = await with_timeout_and_error_handling(
             agent_process_func=slow_agent,
             state=minimal_state,
             node_name="slow_agent",
             timeout_seconds=1,  # Use short timeout for test
         )
-        
+
         # Should have error recorded
         assert len(result["error_info"]) == 1
         error = result["error_info"][0]
@@ -750,14 +744,14 @@ class TestWithTimeoutAndErrorHandling:
         async def slow_agent(state):
             await asyncio.sleep(5)
             return state
-        
+
         result = await with_timeout_and_error_handling(
             agent_process_func=slow_agent,
             state=minimal_state,
             node_name="slow_agent",
             timeout_seconds=1,
         )
-        
+
         assert result["node_execution_status"]["slow_agent"] == NodeExecutionStatus.FAILED
 
     @pytest.mark.asyncio
@@ -765,13 +759,13 @@ class TestWithTimeoutAndErrorHandling:
         """Exception should record error in error_info list"""
         async def failing_agent(state):
             raise ValueError("Test error message")
-        
+
         result = await with_timeout_and_error_handling(
             agent_process_func=failing_agent,
             state=minimal_state,
             node_name="failing_agent",
         )
-        
+
         # Should have error recorded
         assert len(result["error_info"]) == 1
         error = result["error_info"][0]
@@ -784,29 +778,29 @@ class TestWithTimeoutAndErrorHandling:
         """Exception should set node status to FAILED"""
         async def failing_agent(state):
             raise RuntimeError("Something went wrong")
-        
+
         result = await with_timeout_and_error_handling(
             agent_process_func=failing_agent,
             state=minimal_state,
             node_name="failing_agent",
         )
-        
+
         assert result["node_execution_status"]["failing_agent"] == NodeExecutionStatus.FAILED
 
     @pytest.mark.asyncio
     async def test_error_message_truncated_to_1000_chars(self, minimal_state):
         """Error message should be truncated to max 1000 characters"""
         long_message = "A" * 2000
-        
+
         async def failing_agent(state):
             raise ValueError(long_message)
-        
+
         result = await with_timeout_and_error_handling(
             agent_process_func=failing_agent,
             state=minimal_state,
             node_name="failing_agent",
         )
-        
+
         error = result["error_info"][0]
         assert len(error.error_message) <= 1000
 
@@ -819,16 +813,16 @@ class TestWithTimeoutAndErrorHandling:
             error_message="Previous error",
         )
         minimal_state["error_info"] = [existing_error]
-        
+
         async def failing_agent(state):
             raise ValueError("New error")
-        
+
         result = await with_timeout_and_error_handling(
             agent_process_func=failing_agent,
             state=minimal_state,
             node_name="new_agent",
         )
-        
+
         assert len(result["error_info"]) == 2
         assert result["error_info"][0].node_name == "previous_agent"
         assert result["error_info"][1].node_name == "new_agent"
@@ -839,16 +833,16 @@ class TestWithTimeoutAndErrorHandling:
         minimal_state["node_execution_status"] = {
             "previous_agent": NodeExecutionStatus.COMPLETED
         }
-        
+
         async def mock_agent(state):
             return {**state, "done": True}
-        
+
         result = await with_timeout_and_error_handling(
             agent_process_func=mock_agent,
             state=minimal_state,
             node_name="new_agent",
         )
-        
+
         assert result["node_execution_status"]["previous_agent"] == NodeExecutionStatus.COMPLETED
         assert result["node_execution_status"]["new_agent"] == NodeExecutionStatus.COMPLETED
 
@@ -857,14 +851,14 @@ class TestWithTimeoutAndErrorHandling:
         """On error, should return state (not raise exception)"""
         async def failing_agent(state):
             raise Exception("Critical error")
-        
+
         # Should not raise
         result = await with_timeout_and_error_handling(
             agent_process_func=failing_agent,
             state=minimal_state,
             node_name="failing_agent",
         )
-        
+
         # Should return a valid state dict
         assert isinstance(result, dict)
         assert "error_info" in result
@@ -892,7 +886,7 @@ class TestNodeFunctionsWithTimeout:
     async def test_controller_node_sets_execution_status(self, sample_state):
         """Controller node should set execution status"""
         result = await controller_node(sample_state)
-        
+
         assert "node_execution_status" in result
         # Should have controller status set
         assert "controller" in result["node_execution_status"]
@@ -904,9 +898,9 @@ class TestNodeFunctionsWithTimeout:
         sample_state["task_breakdown"] = [
             SubTask(task_id="t1", target_agent=TargetAgent.NUTRITION, task_description="test")
         ]
-        
+
         result = await nutrition_node(sample_state)
-        
+
         assert "node_execution_status" in result
         assert "nutrition" in result["node_execution_status"]
 
@@ -916,9 +910,9 @@ class TestNodeFunctionsWithTimeout:
         sample_state["task_breakdown"] = [
             SubTask(task_id="t1", target_agent=TargetAgent.REHABILITATION, task_description="test")
         ]
-        
+
         result = await rehabilitation_node(sample_state)
-        
+
         assert "node_execution_status" in result
         assert "rehabilitation" in result["node_execution_status"]
 
@@ -928,9 +922,9 @@ class TestNodeFunctionsWithTimeout:
         sample_state["task_breakdown"] = [
             SubTask(task_id="t1", target_agent=TargetAgent.NEUROPSYCHOLOGY, task_description="test")
         ]
-        
+
         result = await neuropsychology_node(sample_state)
-        
+
         assert "node_execution_status" in result
         assert "neuropsychology" in result["node_execution_status"]
 
@@ -942,9 +936,9 @@ class TestNodeFunctionsWithTimeout:
             "rehabilitation": "test",
             "neuropsychology": "test",
         }
-        
+
         result = await synthesis_node(sample_state)
-        
+
         assert "node_execution_status" in result
         assert "synthesis" in result["node_execution_status"]
 
@@ -960,34 +954,34 @@ class TestSingleAgentFailureIsolation:
             "error_info": [],
             "node_execution_status": {},
         }
-        
+
         # Simulate first agent failing
         async def failing_agent(s):
             raise ValueError("Agent 1 failed")
-        
+
         result1 = await with_timeout_and_error_handling(
             agent_process_func=failing_agent,
             state=state,
             node_name="agent1",
         )
-        
+
         # First agent should be marked as failed
         assert result1["node_execution_status"]["agent1"] == NodeExecutionStatus.FAILED
-        
+
         # Second agent should still be able to execute
         async def success_agent(s):
             return {**s, "agent2_completed": True}
-        
+
         result2 = await with_timeout_and_error_handling(
             agent_process_func=success_agent,
             state=result1,
             node_name="agent2",
         )
-        
+
         # Second agent should complete successfully
         assert result2["node_execution_status"]["agent2"] == NodeExecutionStatus.COMPLETED
         assert result2["agent2_completed"] is True
-        
+
         # First agent's failed status should still be there
         assert result2["node_execution_status"]["agent1"] == NodeExecutionStatus.FAILED
 
@@ -999,25 +993,25 @@ class TestSingleAgentFailureIsolation:
             "error_info": [],
             "node_execution_status": {},
         }
-        
+
         async def failing_agent1(s):
             raise ValueError("Error from agent 1")
-        
+
         async def failing_agent2(s):
             raise RuntimeError("Error from agent 2")
-        
+
         result1 = await with_timeout_and_error_handling(
             agent_process_func=failing_agent1,
             state=state,
             node_name="agent1",
         )
-        
+
         result2 = await with_timeout_and_error_handling(
             agent_process_func=failing_agent2,
             state=result1,
             node_name="agent2",
         )
-        
+
         # Should have both errors recorded
         assert len(result2["error_info"]) == 2
         error_nodes = [e.node_name for e in result2["error_info"]]
@@ -1039,15 +1033,15 @@ class TestRequirement10_7_Timeout:
             "error_info": [],
             "node_execution_status": {},
         }
-        
+
         execution_completed = False
-        
+
         async def slow_agent(s):
             nonlocal execution_completed
             await asyncio.sleep(10)  # Would take 10 seconds
             execution_completed = True
             return s
-        
+
         # Use 1 second timeout for test speed
         result = await with_timeout_and_error_handling(
             agent_process_func=slow_agent,
@@ -1055,7 +1049,7 @@ class TestRequirement10_7_Timeout:
             node_name="slow_agent",
             timeout_seconds=1,
         )
-        
+
         # Agent should have been terminated
         assert execution_completed is False
         assert result["node_execution_status"]["slow_agent"] == NodeExecutionStatus.FAILED
@@ -1067,21 +1061,21 @@ class TestRequirement10_7_Timeout:
             "error_info": [],
             "node_execution_status": {},
         }
-        
+
         async def slow_agent(s):
             await asyncio.sleep(10)
             return s
-        
+
         result = await with_timeout_and_error_handling(
             agent_process_func=slow_agent,
             state=state,
             node_name="timeout_agent",
             timeout_seconds=1,
         )
-        
+
         # Status should be recorded
         assert result["node_execution_status"]["timeout_agent"] == NodeExecutionStatus.FAILED
-        
+
         # Error info should be recorded
         assert len(result["error_info"]) == 1
         error = result["error_info"][0]
@@ -1098,17 +1092,17 @@ class TestRequirement10_8_ExceptionHandling:
             "error_info": [],
             "node_execution_status": {},
         }
-        
+
         async def failing_agent(s):
             raise KeyError("missing_key")
-        
+
         # Should not raise
         result = await with_timeout_and_error_handling(
             agent_process_func=failing_agent,
             state=state,
             node_name="failing_agent",
         )
-        
+
         # Should have captured the error
         assert len(result["error_info"]) == 1
 
@@ -1119,16 +1113,16 @@ class TestRequirement10_8_ExceptionHandling:
             "error_info": [],
             "node_execution_status": {},
         }
-        
+
         async def failing_agent(s):
             raise TypeError("invalid type")
-        
+
         result = await with_timeout_and_error_handling(
             agent_process_func=failing_agent,
             state=state,
             node_name="type_error_agent",
         )
-        
+
         error = result["error_info"][0]
         assert error.node_name == "type_error_agent"
         assert error.error_type == "TypeError"
@@ -1143,27 +1137,27 @@ class TestRequirement10_8_ExceptionHandling:
             "node_execution_status": {},
             "data": "initial",
         }
-        
+
         # First agent fails
         async def agent1(s):
             raise Exception("Agent 1 crashed")
-        
+
         result1 = await with_timeout_and_error_handling(
             agent_process_func=agent1,
             state=state,
             node_name="agent1",
         )
-        
+
         # Workflow can continue with second agent
         async def agent2(s):
             return {**s, "data": "modified by agent2"}
-        
+
         result2 = await with_timeout_and_error_handling(
             agent_process_func=agent2,
             state=result1,
             node_name="agent2",
         )
-        
+
         # Agent 2 successfully modified state
         assert result2["data"] == "modified by agent2"
         assert result2["node_execution_status"]["agent2"] == NodeExecutionStatus.COMPLETED

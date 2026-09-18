@@ -13,10 +13,11 @@ Design Reference: HITL Interrupt/Resume 机制
 """
 
 import asyncio
+import contextlib
 import logging
 from collections.abc import Callable
 from datetime import UTC, datetime
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from app.models.final_report import ConfirmationStatus
@@ -40,7 +41,7 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
-class SessionStatus(str, Enum):
+class SessionStatus(StrEnum):
     """会话状态枚举"""
 
     ACTIVE = "active"  # 正在执行中
@@ -475,10 +476,8 @@ class HITLManager:
         self._running = False
         if self._cleanup_task:
             self._cleanup_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._cleanup_task
-            except asyncio.CancelledError:
-                pass
             self._cleanup_task = None
         logger.info("HITL cleanup loop stopped")
 

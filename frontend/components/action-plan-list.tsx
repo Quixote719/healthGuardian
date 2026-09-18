@@ -1,22 +1,17 @@
 "use client";
 
-import * as React from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
-
-import { cn } from "@/lib/utils";
+import * as React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { cn } from "@/lib/utils";
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import {
-  ActionItem,
-  ActionCategory,
-  ActionPlanListProps,
+  type ActionCategory,
+  type ActionItem,
+  type ActionPlanListProps,
   CATEGORY_COLORS,
-  CATEGORY_ORDER,
   CATEGORY_ICONS,
+  CATEGORY_ORDER,
 } from "@/types";
 
 /**
@@ -47,11 +42,7 @@ function groupByCategory(
 /**
  * 优先级标签组件
  */
-function PriorityBadge({
-  priority,
-}: {
-  priority: ActionItem["priority"];
-}) {
+function PriorityBadge({ priority }: { priority: ActionItem["priority"] }) {
   const priorityStyles = {
     高: "bg-red-100 text-red-800 border-red-300",
     中: "bg-yellow-100 text-yellow-800 border-yellow-300",
@@ -73,11 +64,7 @@ function PriorityBadge({
 /**
  * 风险等级标签组件
  */
-function RiskLevelBadge({
-  riskLevel,
-}: {
-  riskLevel: ActionItem["risk_level"];
-}) {
+function RiskLevelBadge({ riskLevel }: { riskLevel: ActionItem["risk_level"] }) {
   const riskStyles = {
     高风险: "bg-red-100 text-red-800 border-red-300",
     中风险: "bg-orange-100 text-orange-800 border-orange-300",
@@ -104,22 +91,15 @@ function ActionItemCard({
   categoryColor,
 }: {
   item: ActionItem;
-  categoryColor: typeof CATEGORY_COLORS[ActionCategory];
+  categoryColor: (typeof CATEGORY_COLORS)[ActionCategory];
 }) {
   return (
-    <div
-      className={cn(
-        "p-4 rounded-lg border-l-4 bg-white shadow-sm",
-        categoryColor.borderClass
-      )}
-    >
+    <div className={cn("p-4 rounded-lg border-l-4 bg-white shadow-sm", categoryColor.borderClass)}>
       {/* 标题 */}
       <h4 className="font-semibold text-gray-900 mb-2">{item.title}</h4>
 
       {/* 描述 */}
-      <p className="text-gray-600 text-sm mb-3 leading-relaxed">
-        {item.description}
-      </p>
+      <p className="text-gray-600 text-sm mb-3 leading-relaxed">{item.description}</p>
 
       {/* 标签区域 */}
       <div className="flex flex-wrap gap-2 items-center">
@@ -178,9 +158,7 @@ function CategorySection({
           <span className="text-2xl" role="img" aria-hidden="true">
             {icon}
           </span>
-          <span className={cn("font-semibold text-lg", colorConfig.textClass)}>
-            {category}
-          </span>
+          <span className={cn("font-semibold text-lg", colorConfig.textClass)}>{category}</span>
           <span
             className={cn(
               "inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium",
@@ -194,11 +172,7 @@ function CategorySection({
           </span>
         </div>
         <div className={cn("transition-transform duration-200", colorConfig.textClass)}>
-          {isOpen ? (
-            <ChevronDown className="h-5 w-5" />
-          ) : (
-            <ChevronRight className="h-5 w-5" />
-          )}
+          {isOpen ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
         </div>
       </CollapsibleTrigger>
 
@@ -253,7 +227,7 @@ export function ActionPlanList({
 }: ActionPlanListProps) {
   // 确保 actionPlan 是数组
   const safeActionPlan = Array.isArray(actionPlan) ? actionPlan : [];
-  
+
   // 如果没有指定默认展开的分类，则全部展开
   const expandedCategories = defaultExpandedCategories ?? CATEGORY_ORDER;
 
@@ -264,15 +238,10 @@ export function ActionPlanList({
   const hasItems = safeActionPlan.length > 0;
 
   // 检查分类是否应该默认展开
-  const isDefaultExpanded = (category: ActionCategory) =>
-    expandedCategories.includes(category);
+  const isDefaultExpanded = (category: ActionCategory) => expandedCategories.includes(category);
 
   return (
-    <Card
-      className={cn("w-full", className)}
-      role="region"
-      aria-label="行动计划列表"
-    >
+    <Card className={cn("w-full", className)} role="region" aria-label="行动计划列表">
       <CardHeader className="pb-4">
         <CardTitle className="text-xl font-bold flex items-center gap-2">
           <span role="img" aria-hidden="true">

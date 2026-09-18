@@ -1,20 +1,12 @@
 "use client";
 
+import { AlertCircle, Heart, Loader2, RefreshCw, Send, WifiOff } from "lucide-react";
 import * as React from "react";
-import {
-  Loader2,
-  Send,
-  RefreshCw,
-  WifiOff,
-  AlertCircle,
-  Heart,
-} from "lucide-react";
-
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { InsightCard } from "@/components/insight-card";
 import { ActionPlanList } from "@/components/action-plan-list";
 import { HITLConfirmationDialog } from "@/components/hitl-confirmation-dialog";
+import { InsightCard } from "@/components/insight-card";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useHealthChat } from "@/hooks/use-health-chat";
 import { cn } from "@/lib/utils";
 import type { ConnectionStatus } from "@/types";
@@ -62,12 +54,7 @@ function ConnectionStatusIndicator({
       {config.icon && <span aria-hidden="true">{config.icon}</span>}
       <span className={cn("font-medium", config.color)}>{config.text}</span>
       {status === "disconnected" && (
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-6 px-2 text-xs"
-          onClick={onReconnect}
-        >
+        <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={onReconnect}>
           <RefreshCw className="h-3 w-3 mr-1" />
           重连
         </Button>
@@ -91,13 +78,7 @@ function LoadingIndicator({ phase }: { phase: string }) {
 /**
  * 错误提示组件 (Requirements 17.6)
  */
-function ErrorDisplay({
-  message,
-  onRetry,
-}: {
-  message: string;
-  onRetry: () => void;
-}) {
+function ErrorDisplay({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
     <Card className="border-red-200 bg-red-50">
       <CardContent className="flex items-center justify-between p-4">
@@ -195,9 +176,7 @@ function ChatInput({
               )}
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground mt-2">
-            按 Enter 发送，Shift + Enter 换行
-          </p>
+          <p className="text-xs text-muted-foreground mt-2">按 Enter 发送，Shift + Enter 换行</p>
         </CardContent>
       </Card>
     </form>
@@ -213,7 +192,9 @@ function FeatureCards() {
       <Card className="bg-green-50 border-green-200">
         <CardHeader className="pb-2">
           <CardTitle className="text-green-800 text-lg flex items-center gap-2">
-            <span role="img" aria-hidden="true">🥗</span>
+            <span role="img" aria-hidden="true">
+              🥗
+            </span>
             营养专家
           </CardTitle>
         </CardHeader>
@@ -227,21 +208,23 @@ function FeatureCards() {
       <Card className="bg-blue-50 border-blue-200">
         <CardHeader className="pb-2">
           <CardTitle className="text-blue-800 text-lg flex items-center gap-2">
-            <span role="img" aria-hidden="true">🏃</span>
+            <span role="img" aria-hidden="true">
+              🏃
+            </span>
             康复专家
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-blue-700">
-            根据年龄、BMI和病史，制定安全有效的运动康复方案。
-          </p>
+          <p className="text-sm text-blue-700">根据年龄、BMI和病史，制定安全有效的运动康复方案。</p>
         </CardContent>
       </Card>
 
       <Card className="bg-purple-50 border-purple-200">
         <CardHeader className="pb-2">
           <CardTitle className="text-purple-800 text-lg flex items-center gap-2">
-            <span role="img" aria-hidden="true">🧠</span>
+            <span role="img" aria-hidden="true">
+              🧠
+            </span>
             心理专家
           </CardTitle>
         </CardHeader>
@@ -294,7 +277,10 @@ export default function ChatPage() {
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
 
   // HITL 弹窗状态 - 添加防御性检查确保 pausedHighRiskItems 是数组
-  const isHITLDialogOpen = pausedSessionId !== null && Array.isArray(pausedHighRiskItems) && pausedHighRiskItems.length > 0;
+  const isHITLDialogOpen =
+    pausedSessionId !== null &&
+    Array.isArray(pausedHighRiskItems) &&
+    pausedHighRiskItems.length > 0;
 
   // 处理发送消息
   const handleSendMessage = async (content: string) => {
@@ -334,10 +320,7 @@ export default function ChatPage() {
             <Heart className="h-6 w-6 text-primary" />
             <h1 className="text-xl font-bold tracking-tight">健康顾问</h1>
           </div>
-          <ConnectionStatusIndicator
-            status={connectionStatus}
-            onReconnect={handleRetry}
-          />
+          <ConnectionStatusIndicator status={connectionStatus} onReconnect={handleRetry} />
         </div>
       </header>
 
@@ -348,9 +331,7 @@ export default function ChatPage() {
           {showWelcome && (
             <div className="flex flex-col items-center justify-center space-y-8 py-12">
               <div className="text-center space-y-4">
-                <h2 className="text-3xl font-bold tracking-tight">
-                  欢迎使用健康顾问
-                </h2>
+                <h2 className="text-3xl font-bold tracking-tight">欢迎使用健康顾问</h2>
                 <p className="text-lg text-muted-foreground max-w-2xl">
                   智能健康管理系统，为您提供营养学、运动康复、神经心理调节等跨学科的专业建议。
                 </p>
@@ -405,18 +386,13 @@ export default function ChatPage() {
           {isLoading && <LoadingIndicator phase={currentPhase} />}
 
           {/* 错误提示 (Requirements 17.6) */}
-          {errorMessage && (
-            <ErrorDisplay message={errorMessage} onRetry={handleRetry} />
-          )}
+          {errorMessage && <ErrorDisplay message={errorMessage} onRetry={handleRetry} />}
 
           {/* 最终报告展示 (Requirements 17.4) */}
           {finalReport && (
             <div className="space-y-6 animate-in fade-in-50 duration-500">
               {/* 深度洞察卡片 */}
-              <InsightCard
-                deepInsight={finalReport.deep_insight}
-                isLoading={false}
-              />
+              <InsightCard deepInsight={finalReport.deep_insight} isLoading={false} />
 
               {/* 行动计划列表 */}
               <ActionPlanList actionPlan={finalReport.action_plan} />
@@ -426,7 +402,9 @@ export default function ChatPage() {
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                      <span role="img" aria-hidden="true">📅</span>
+                      <span role="img" aria-hidden="true">
+                        📅
+                      </span>
                       随访计划
                     </CardTitle>
                   </CardHeader>
@@ -451,9 +429,7 @@ export default function ChatPage() {
                 <Card className="bg-amber-50 border-amber-200">
                   <CardContent className="flex items-center gap-3 p-4">
                     <span className="text-amber-600 text-xl">⚠</span>
-                    <span className="text-amber-700">
-                      高风险干预已被取消，仅显示部分建议
-                    </span>
+                    <span className="text-amber-700">高风险干预已被取消，仅显示部分建议</span>
                   </CardContent>
                 </Card>
               )}

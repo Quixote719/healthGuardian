@@ -8,10 +8,9 @@ Requirements: 14.1-14.11
 import pytest
 from fastapi.testclient import TestClient
 
-from app.main import app
 from app.api.routes.chat import get_hitl_manager
+from app.main import app
 from app.models.state import HealthState
-
 
 # ============================================================================
 # Fixtures
@@ -45,16 +44,16 @@ async def paused_session(hitl_manager):
         "error_info": [],
         "final_report": None,
     }
-    
+
     await hitl_manager.pause_workflow(
         session_id=session_id,
         state=state,
         reason="高风险干预测试",
         high_risk_items=[],
     )
-    
+
     yield session_id
-    
+
     # 清理
     if hitl_manager.get_session(session_id):
         await hitl_manager.terminate_session(session_id)
@@ -70,21 +69,21 @@ class TestConfirmEndpoint:
 
     def test_confirm_session_not_found(self, client):
         """测试会话不存在时返回 404
-        
+
         Requirement 14.4: session_id 对应的会话不存在时返回 "session_not_found" 错误
         """
         response = client.post("/api/confirm", json={
             "session_id": "non_existent_session",
             "confirmed": True,
         })
-        
+
         assert response.status_code == 404
         data = response.json()
         assert data["detail"]["error_type"] == "session_not_found"
 
     async def test_confirm_success_confirmed(self, client, paused_session):
         """测试确认执行成功
-        
+
         Requirement 14.6: 用户确认执行时调用 resume_execution 继续工作流
         Requirement 14.8: 返回包含 status 字段的 JSON 响应体
         """
@@ -92,7 +91,7 @@ class TestConfirmEndpoint:
             "session_id": paused_session,
             "confirmed": True,
         })
-        
+
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "resumed"
@@ -100,7 +99,7 @@ class TestConfirmEndpoint:
 
     async def test_confirm_success_rejected(self, client, paused_session):
         """测试拒绝执行成功
-        
+
         Requirement 14.7: 用户拒绝执行时终止工作流并返回部分结果
         Requirement 14.8: 返回包含 status 和 partial_report 字段的 JSON 响应体
         """
@@ -108,31 +107,31 @@ class TestConfirmEndpoint:
             "session_id": paused_session,
             "confirmed": False,
         })
-        
+
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "terminated"
 
     def test_confirm_request_validation_missing_session_id(self, client):
         """测试缺少 session_id 时返回验证错误
-        
+
         Requirement 14.2: 接收包含 session_id 和 confirmed 字段的 JSON 请求体
         """
         response = client.post("/api/confirm", json={
             "confirmed": True,
         })
-        
+
         assert response.status_code == 422
 
     def test_confirm_request_validation_missing_confirmed(self, client):
         """测试缺少 confirmed 时返回验证错误
-        
+
         Requirement 14.2: 接收包含 session_id 和 confirmed 字段的 JSON 请求体
         """
         response = client.post("/api/confirm", json={
             "session_id": "test_session",
         })
-        
+
         assert response.status_code == 422
 
 
@@ -147,7 +146,7 @@ class TestConfirmStatusEndpoint:
     def test_status_session_not_found(self, client):
         """测试会话不存在时返回 404"""
         response = client.get("/api/confirm/status/non_existent_session")
-        
+
         assert response.status_code == 404
         data = response.json()
         assert data["detail"]["error_type"] == "session_not_found"
@@ -155,10 +154,10 @@ class TestConfirmStatusEndpoint:
     async def test_status_success(self, client, paused_session):
         """测试获取会话状态成功"""
         response = client.get(f"/api/confirm/status/{paused_session}")
-        
+
         assert response.status_code == 200
         data = response.json()
-        
+
         assert data["session_id"] == paused_session
         assert data["status"] == "paused"
         assert "paused_at" in data
@@ -175,7 +174,7 @@ class TestConfirmStatusEndpoint:
 
 class TestConfirmTimeout:
     """测试超时处理
-    
+
     Requirement 14.9: 对暂停状态的会话设置10分钟超时限制
     Requirement 14.10: 会话暂停超过10分钟未收到确认时自动终止并释放资源
     """
@@ -186,7 +185,7 @@ class TestConfirmTimeout:
             session_id=paused_session,
             timeout_minutes=10,
         )
-        
+
         assert is_timeout is False
 
     async def test_timeout_check_exceeded(self, hitl_manager):
@@ -203,21 +202,21 @@ class TestConfirmTimeout:
             "error_info": [],
             "final_report": None,
         }
-        
+
         await hitl_manager.pause_workflow(
             session_id=session_id,
             state=state,
             reason="测试",
         )
-        
+
         # 检查使用很短的超时时间
         is_timeout = await hitl_manager.check_timeout(
             session_id=session_id,
             timeout_minutes=0,  # 立即超时
         )
-        
+
         assert is_timeout is True
-        
+
         # 清理
         await hitl_manager.terminate_session(session_id)
 
@@ -237,7 +236,7 @@ class TestConfirmErrorHandling:
             content="invalid json",
             headers={"Content-Type": "application/json"},
         )
-        
+
         assert response.status_code == 422
 
     def test_confirm_handles_empty_body(self, client):
@@ -247,7 +246,7 @@ class TestConfirmErrorHandling:
             content="{}",
             headers={"Content-Type": "application/json"},
         )
-        
+
         assert response.status_code == 422
 
     def test_confirm_handles_invalid_confirmed_type(self, client):
@@ -256,5 +255,5 @@ class TestConfirmErrorHandling:
             "session_id": "test_session",
             "confirmed": "not_a_boolean",
         })
-        
+
         assert response.status_code == 422

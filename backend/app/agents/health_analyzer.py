@@ -8,7 +8,7 @@ Requirements: 6.3, 6.4, 7.2, 7.3, 7.6, 8.2, 8.3
 """
 
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 
 from app.models.user_profile import BloodGlucose, BloodLipids, MedicalHistory
 
@@ -17,7 +17,7 @@ from app.models.user_profile import BloodGlucose, BloodLipids, MedicalHistory
 # ============================================================================
 
 
-class ExerciseIntensity(str, Enum):
+class ExerciseIntensity(StrEnum):
     """运动强度等级"""
 
     HIGH = "高强度"
@@ -26,7 +26,7 @@ class ExerciseIntensity(str, Enum):
     LOW = "低强度"
 
 
-class IntensityAdjustment(str, Enum):
+class IntensityAdjustment(StrEnum):
     """BMI 强度调整"""
 
     SLIGHT_INCREASE = "轻度增强"
@@ -35,7 +35,7 @@ class IntensityAdjustment(str, Enum):
     SIGNIFICANT_DECREASE = "显著降低"
 
 
-class StressInterventionLevel(str, Enum):
+class StressInterventionLevel(StrEnum):
     """压力干预等级"""
 
     DAILY_REGULATION = "日常调节类"
@@ -43,7 +43,7 @@ class StressInterventionLevel(str, Enum):
     PROFESSIONAL_SUPPORT = "专业支持类"
 
 
-class SleepEvaluation(str, Enum):
+class SleepEvaluation(StrEnum):
     """睡眠时长评估"""
 
     INSUFFICIENT = "睡眠不足"

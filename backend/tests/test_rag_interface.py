@@ -5,7 +5,6 @@ RAG 接口基类单元测试
 Requirements: 11.3, 12.3
 """
 
-from typing import List
 
 import pytest
 from pydantic import ValidationError
@@ -189,7 +188,7 @@ class TestRAGInterface:
                 query_text: str,
                 top_k: int = 5,
                 similarity_threshold: float = 0.7,
-            ) -> List[RAGResult]:
+            ) -> list[RAGResult]:
                 return []
 
         with pytest.raises(TypeError):
@@ -205,7 +204,7 @@ class TestRAGInterface:
                 query_text: str,
                 top_k: int = 5,
                 similarity_threshold: float = 0.7,
-            ) -> List[RAGResult]:
+            ) -> list[RAGResult]:
                 return [
                     RAGResult(
                         content=f"Result for: {query_text}",
@@ -242,7 +241,7 @@ class TestRAGInterface:
                 query_text: str,
                 top_k: int = 5,
                 similarity_threshold: float = 0.7,
-            ) -> List[RAGResult]:
+            ) -> list[RAGResult]:
                 self.last_top_k = top_k
                 self.last_threshold = similarity_threshold
                 return []
@@ -265,7 +264,7 @@ class TestRAGInterface:
                 query_text: str,
                 top_k: int = 5,
                 similarity_threshold: float = 0.7,
-            ) -> List[RAGResult]:
+            ) -> list[RAGResult]:
                 return []
 
             async def health_check(self) -> bool:
@@ -286,7 +285,7 @@ class TestRAGInterface:
                 query_text: str,
                 top_k: int = 5,
                 similarity_threshold: float = 0.7,
-            ) -> List[RAGResult]:
+            ) -> list[RAGResult]:
                 return []
 
             async def health_check(self) -> bool:
@@ -306,7 +305,7 @@ class TestRAGInterface:
                 query_text: str,
                 top_k: int = 5,
                 similarity_threshold: float = 0.7,
-            ) -> List[RAGResult]:
+            ) -> list[RAGResult]:
                 # 返回按相似度降序排列的结果
                 return [
                     RAGResult(content="高分", source="1.md", similarity_score=0.95),
@@ -332,12 +331,10 @@ class TestRAGInterface:
 
     def test_query_method_is_abstract(self) -> None:
         """验证 query 方法是抽象方法"""
-        import inspect
 
         assert "query" in RAGInterface.__abstractmethods__
 
     def test_health_check_method_is_abstract(self) -> None:
         """验证 health_check 方法是抽象方法"""
-        import inspect
 
         assert "health_check" in RAGInterface.__abstractmethods__

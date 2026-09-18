@@ -648,11 +648,10 @@ class RehabilitationAgent(BaseAgent):
             risk_level = rec["risk_level"]
             description = rec["description"]
 
-            if bmi_adjustment == IntensityAdjustment.SIGNIFICANT_DECREASE:
+            if bmi_adjustment == IntensityAdjustment.SIGNIFICANT_DECREASE and any(tag in tags for tag in ["高冲击运动", "高强度有氧", "跳跃运动"]):
                 # BMI ≥ 28 时，提升高冲击运动的风险等级
-                if any(tag in tags for tag in ["高冲击运动", "高强度有氧", "跳跃运动"]):
-                    risk_level = RiskLevel.HIGH
-                    description += " 注意：由于体重因素，请特别注意关节保护，建议在专业指导下进行。"
+                risk_level = RiskLevel.HIGH
+                description += " 注意：由于体重因素，请特别注意关节保护，建议在专业指导下进行。"
 
             action_item = ActionItem(
                 category=ActionCategory.REHABILITATION,

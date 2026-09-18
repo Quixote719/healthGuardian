@@ -14,19 +14,18 @@ Requirements: 7.1-7.6
 import asyncio
 import json
 from datetime import date
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 
 import pytest
 
-from app.agents.rehabilitation import RehabilitationAgent
 from app.agents.health_analyzer import (
     ExerciseIntensity,
     IntensityAdjustment,
+    check_medical_contraindications,
     get_exercise_intensity_by_age,
     get_intensity_adjustment_by_bmi,
-    check_medical_contraindications,
 )
-from app.models.action_item import ActionCategory
+from app.agents.rehabilitation import RehabilitationAgent
 from app.models.state import HealthState, NodeExecutionStatus
 from app.models.user_profile import (
     BloodGlucose,
@@ -40,7 +39,6 @@ from app.models.user_profile import (
     PhysicalExamination,
     UserProfile,
 )
-
 
 # ============================================================================
 # Fixtures

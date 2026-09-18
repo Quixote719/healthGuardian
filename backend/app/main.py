@@ -15,6 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import ValidationError as PydanticValidationError
 
 from app import __version__
+from app.api.routes import chat, confirm
 from app.core.error_handler import (
     generic_exception_handler,
     health_system_exception_handler,
@@ -101,8 +102,6 @@ async def root() -> dict[str, str]:
 
 
 # 注册 API 路由 (Requirements: 13.1, 14.1)
-from app.api.routes import chat, confirm
-
 app.include_router(chat.router, prefix="/api", tags=["Chat"])
 app.include_router(confirm.router, prefix="/api", tags=["Confirm"])
 

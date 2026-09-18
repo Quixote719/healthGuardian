@@ -169,7 +169,7 @@ async def confirm_hitl(request: ConfirmRequest) -> ConfirmResponse:
     # ========== 处理确认/拒绝 (Requirements 14.6, 14.7, 14.8) ==========
     if confirmed:
         # 用户确认执行 (Requirement 14.6)
-        resumed_state = await hitl_manager.resume_workflow(
+        await hitl_manager.resume_workflow(
             session_id=session_id,
             confirmed=True,
         )

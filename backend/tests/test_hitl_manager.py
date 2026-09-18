@@ -13,21 +13,20 @@ Tests cover:
 Requirements: 10.3-10.6
 """
 
-import pytest
-import asyncio
-from datetime import datetime, timezone, timedelta
-from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import UTC, datetime, timedelta
+from unittest.mock import AsyncMock, MagicMock
 
+import pytest
+
+from app.models.action_item import ActionCategory, ActionItem, Priority, RiskLevel
+from app.models.final_report import ConfirmationStatus, FinalReport
+from app.models.state import HealthState, SubTask, TargetAgent
 from app.workflow.hitl import (
+    LANGGRAPH_CHECKPOINTER_AVAILABLE,
     HITLManager,
     PausedSession,
     SessionStatus,
-    LANGGRAPH_CHECKPOINTER_AVAILABLE,
 )
-from app.models.state import HealthState, SubTask, TargetAgent
-from app.models.final_report import FinalReport, ConfirmationStatus
-from app.models.action_item import ActionItem, ActionCategory, Priority, RiskLevel
-
 
 # ============================================================================
 # Test Fixtures
@@ -194,7 +193,7 @@ class TestPausedSession:
             reason="高风险干预",
             high_risk_items=sample_high_risk_items,
         )
-        
+
         assert session.session_id == "test_123"
         assert session.state == sample_state
         assert session.reason == "高风险干预"
@@ -209,7 +208,7 @@ class TestPausedSession:
             state=sample_state,
             reason="test",
         )
-        
+
         # Should have some small elapsed time
         elapsed = session.elapsed_seconds()
         assert elapsed >= 0
@@ -222,7 +221,7 @@ class TestPausedSession:
             state=sample_state,
             reason="test",
         )
-        
+
         elapsed = session.elapsed_minutes()
         assert elapsed >= 0
         assert elapsed < 0.1  # Should be very small
@@ -234,7 +233,7 @@ class TestPausedSession:
             state=sample_state,
             reason="test reason",
         )
-        
+
         result = session.to_dict()
         assert result["session_id"] == "test_123"
         assert result["reason"] == "test reason"
@@ -259,7 +258,7 @@ class TestPauseWorkflow:
             state=sample_state,
             reason="高风险干预检测",
         )
-        
+
         assert "sess_001" in hitl_manager._paused_sessions
         session = hitl_manager._paused_sessions["sess_001"]
         assert session.state == sample_state
@@ -277,7 +276,7 @@ class TestPauseWorkflow:
             reason="需要确认高风险干预",
             high_risk_items=sample_high_risk_items,
         )
-        
+
         session = hitl_manager._paused_sessions["sess_002"]
         assert len(session.high_risk_items) == 2
 
@@ -297,7 +296,7 @@ class TestPauseWorkflow:
         await hitl_manager.pause_workflow("sess_a", sample_state, "reason_a")
         await hitl_manager.pause_workflow("sess_b", sample_state, "reason_b")
         await hitl_manager.pause_workflow("sess_c", sample_state, "reason_c")
-        
+
         assert hitl_manager.get_session_count() == 3
         assert "sess_a" in hitl_manager._paused_sessions
         assert "sess_b" in hitl_manager._paused_sessions
@@ -316,9 +315,9 @@ class TestResumeWorkflow:
     async def test_resume_workflow_confirmed(self, hitl_manager, sample_state):
         """resume_workflow with confirmed=True should clear interrupt flag"""
         await hitl_manager.pause_workflow("sess_001", sample_state, "test")
-        
+
         result = await hitl_manager.resume_workflow("sess_001", confirmed=True)
-        
+
         assert result is not None
         assert result["ui_interrupt_flag"] is False
         assert "sess_001" not in hitl_manager._paused_sessions
@@ -329,9 +328,9 @@ class TestResumeWorkflow:
     ):
         """resume_workflow with confirmed=True should set confirmation_status to CONFIRMED"""
         await hitl_manager.pause_workflow("sess_001", sample_state_with_report, "test")
-        
+
         result = await hitl_manager.resume_workflow("sess_001", confirmed=True)
-        
+
         assert result is not None
         assert result["final_report"].confirmation_status == ConfirmationStatus.CONFIRMED
 
@@ -339,9 +338,9 @@ class TestResumeWorkflow:
     async def test_resume_workflow_rejected(self, hitl_manager, sample_state_with_report):
         """resume_workflow with confirmed=False should set confirmation_status to REJECTED"""
         await hitl_manager.pause_workflow("sess_001", sample_state_with_report, "test")
-        
+
         result = await hitl_manager.resume_workflow("sess_001", confirmed=False)
-        
+
         assert result is not None
         assert result["final_report"].confirmation_status == ConfirmationStatus.REJECTED
 
@@ -356,7 +355,7 @@ class TestResumeWorkflow:
         """resume_workflow should remove session from storage"""
         await hitl_manager.pause_workflow("sess_001", sample_state, "test")
         assert hitl_manager.get_session_count() == 1
-        
+
         await hitl_manager.resume_workflow("sess_001", confirmed=True)
         assert hitl_manager.get_session_count() == 0
 
@@ -375,10 +374,10 @@ class TestResumeWorkflow:
                 "confirmation_status": "pending",
             },
         }
-        
+
         await hitl_manager.pause_workflow("sess_001", state, "test")
         result = await hitl_manager.resume_workflow("sess_001", confirmed=True)
-        
+
         assert result is not None
         assert result["final_report"]["confirmation_status"] == ConfirmationStatus.CONFIRMED.value
 
@@ -395,7 +394,7 @@ class TestCheckTimeout:
     async def test_check_timeout_not_expired(self, hitl_manager, sample_state):
         """check_timeout should return False for fresh session"""
         await hitl_manager.pause_workflow("sess_001", sample_state, "test")
-        
+
         is_timeout = await hitl_manager.check_timeout("sess_001")
         assert is_timeout is False
 
@@ -409,7 +408,7 @@ class TestCheckTimeout:
     async def test_check_timeout_custom_minutes(self, hitl_manager, sample_state):
         """check_timeout should respect custom timeout_minutes"""
         await hitl_manager.pause_workflow("sess_001", sample_state, "test")
-        
+
         # With very short timeout, should still not be expired for fresh session
         is_timeout = await hitl_manager.check_timeout("sess_001", timeout_minutes=1)
         assert is_timeout is False
@@ -418,11 +417,11 @@ class TestCheckTimeout:
     async def test_check_timeout_expired_session(self, hitl_manager, sample_state):
         """check_timeout should return True for expired session"""
         await hitl_manager.pause_workflow("sess_001", sample_state, "test")
-        
+
         # Manipulate the paused_at time to simulate timeout
         session = hitl_manager._paused_sessions["sess_001"]
-        session.paused_at = datetime.now(timezone.utc) - timedelta(minutes=35)
-        
+        session.paused_at = datetime.now(UTC) - timedelta(minutes=35)
+
         is_timeout = await hitl_manager.check_timeout("sess_001")
         assert is_timeout is True
 
@@ -430,17 +429,17 @@ class TestCheckTimeout:
     async def test_check_timeout_uses_default_30_minutes(self, hitl_manager, sample_state):
         """check_timeout should use 30 minutes as default (Requirement 10.5)"""
         await hitl_manager.pause_workflow("sess_001", sample_state, "test")
-        
+
         # Set paused_at to 29 minutes ago - should not be expired
         session = hitl_manager._paused_sessions["sess_001"]
-        session.paused_at = datetime.now(timezone.utc) - timedelta(minutes=29)
-        
+        session.paused_at = datetime.now(UTC) - timedelta(minutes=29)
+
         is_timeout = await hitl_manager.check_timeout("sess_001")
         assert is_timeout is False
-        
+
         # Set paused_at to 31 minutes ago - should be expired
-        session.paused_at = datetime.now(timezone.utc) - timedelta(minutes=31)
-        
+        session.paused_at = datetime.now(UTC) - timedelta(minutes=31)
+
         is_timeout = await hitl_manager.check_timeout("sess_001")
         assert is_timeout is True
 
@@ -457,7 +456,7 @@ class TestSessionManagement:
     async def test_get_session_status(self, hitl_manager, sample_state):
         """get_session_status should return correct status"""
         await hitl_manager.pause_workflow("sess_001", sample_state, "test")
-        
+
         status = hitl_manager.get_session_status("sess_001")
         assert status == SessionStatus.PAUSED
 
@@ -470,7 +469,7 @@ class TestSessionManagement:
     async def test_get_session(self, hitl_manager, sample_state):
         """get_session should return PausedSession object"""
         await hitl_manager.pause_workflow("sess_001", sample_state, "test")
-        
+
         session = hitl_manager.get_session("sess_001")
         assert session is not None
         assert isinstance(session, PausedSession)
@@ -485,7 +484,7 @@ class TestSessionManagement:
     async def test_is_session_paused(self, hitl_manager, sample_state):
         """is_session_paused should return True for paused session"""
         await hitl_manager.pause_workflow("sess_001", sample_state, "test")
-        
+
         assert hitl_manager.is_session_paused("sess_001") is True
 
     def test_is_session_paused_nonexistent(self, hitl_manager):
@@ -497,7 +496,7 @@ class TestSessionManagement:
         """get_paused_session_ids should return all session IDs"""
         await hitl_manager.pause_workflow("sess_a", sample_state, "test")
         await hitl_manager.pause_workflow("sess_b", sample_state, "test")
-        
+
         ids = hitl_manager.get_paused_session_ids()
         assert len(ids) == 2
         assert "sess_a" in ids
@@ -507,10 +506,10 @@ class TestSessionManagement:
     async def test_get_session_count(self, hitl_manager, sample_state):
         """get_session_count should return correct count"""
         assert hitl_manager.get_session_count() == 0
-        
+
         await hitl_manager.pause_workflow("sess_a", sample_state, "test")
         assert hitl_manager.get_session_count() == 1
-        
+
         await hitl_manager.pause_workflow("sess_b", sample_state, "test")
         assert hitl_manager.get_session_count() == 2
 
@@ -527,9 +526,9 @@ class TestTerminateSession:
     async def test_terminate_session(self, hitl_manager, sample_state):
         """terminate_session should remove and return state"""
         await hitl_manager.pause_workflow("sess_001", sample_state, "test")
-        
+
         result = await hitl_manager.terminate_session("sess_001", reason="user request")
-        
+
         assert result is not None
         assert "sess_001" not in hitl_manager._paused_sessions
 
@@ -545,9 +544,9 @@ class TestTerminateSession:
     ):
         """terminate_session should set confirmation_status to REJECTED"""
         await hitl_manager.pause_workflow("sess_001", sample_state_with_report, "test")
-        
+
         result = await hitl_manager.terminate_session("sess_001")
-        
+
         assert result["final_report"].confirmation_status == ConfirmationStatus.REJECTED
 
 
@@ -563,9 +562,9 @@ class TestCleanupTimeoutSessions:
     async def test_cleanup_timeout_sessions_no_timeout(self, hitl_manager, sample_state):
         """cleanup_timeout_sessions should not terminate fresh sessions"""
         await hitl_manager.pause_workflow("sess_001", sample_state, "test")
-        
+
         terminated = await hitl_manager.cleanup_timeout_sessions()
-        
+
         assert len(terminated) == 0
         assert hitl_manager.get_session_count() == 1
 
@@ -573,13 +572,13 @@ class TestCleanupTimeoutSessions:
     async def test_cleanup_timeout_sessions_with_timeout(self, hitl_manager, sample_state):
         """cleanup_timeout_sessions should terminate expired sessions"""
         await hitl_manager.pause_workflow("sess_001", sample_state, "test")
-        
+
         # Simulate timeout
         session = hitl_manager._paused_sessions["sess_001"]
-        session.paused_at = datetime.now(timezone.utc) - timedelta(minutes=35)
-        
+        session.paused_at = datetime.now(UTC) - timedelta(minutes=35)
+
         terminated = await hitl_manager.cleanup_timeout_sessions()
-        
+
         assert len(terminated) == 1
         assert "sess_001" in terminated
         assert hitl_manager.get_session_count() == 0
@@ -589,13 +588,13 @@ class TestCleanupTimeoutSessions:
         """cleanup_timeout_sessions should only terminate expired sessions"""
         await hitl_manager.pause_workflow("sess_fresh", sample_state, "test")
         await hitl_manager.pause_workflow("sess_expired", sample_state, "test")
-        
+
         # Expire only one session
         session = hitl_manager._paused_sessions["sess_expired"]
-        session.paused_at = datetime.now(timezone.utc) - timedelta(minutes=35)
-        
+        session.paused_at = datetime.now(UTC) - timedelta(minutes=35)
+
         terminated = await hitl_manager.cleanup_timeout_sessions()
-        
+
         assert len(terminated) == 1
         assert "sess_expired" in terminated
         assert hitl_manager.get_session_count() == 1
@@ -606,13 +605,13 @@ class TestCleanupTimeoutSessions:
         """cleanup_timeout_sessions should trigger callback for terminated sessions"""
         callback = AsyncMock()
         hitl_manager.set_timeout_callback(callback)
-        
+
         await hitl_manager.pause_workflow("sess_001", sample_state, "test")
         session = hitl_manager._paused_sessions["sess_001"]
-        session.paused_at = datetime.now(timezone.utc) - timedelta(minutes=35)
-        
+        session.paused_at = datetime.now(UTC) - timedelta(minutes=35)
+
         await hitl_manager.cleanup_timeout_sessions()
-        
+
         callback.assert_called_once_with("sess_001")
 
 
@@ -628,7 +627,7 @@ class TestTimeoutCallback:
         """set_timeout_callback should set the callback"""
         callback = AsyncMock()
         hitl_manager.set_timeout_callback(callback)
-        
+
         assert hitl_manager._on_timeout_callback is callback
 
     @pytest.mark.asyncio
@@ -636,14 +635,14 @@ class TestTimeoutCallback:
         """cleanup should continue even if callback raises exception"""
         callback = AsyncMock(side_effect=Exception("Callback error"))
         hitl_manager.set_timeout_callback(callback)
-        
+
         await hitl_manager.pause_workflow("sess_001", sample_state, "test")
         session = hitl_manager._paused_sessions["sess_001"]
-        session.paused_at = datetime.now(timezone.utc) - timedelta(minutes=35)
-        
+        session.paused_at = datetime.now(UTC) - timedelta(minutes=35)
+
         # Should not raise exception
         terminated = await hitl_manager.cleanup_timeout_sessions()
-        
+
         assert len(terminated) == 1
 
 
@@ -668,7 +667,7 @@ class TestContextManager:
         async with HITLManager() as manager:
             await manager.pause_workflow("sess_001", sample_state, "test")
             assert manager.get_session_count() == 1
-        
+
         # After exiting context, sessions should be terminated
         assert manager.get_session_count() == 0
 
@@ -685,7 +684,7 @@ class TestRequirementValidation:
     async def test_req_10_3_pause_workflow_stores_state(self, hitl_manager, sample_state):
         """Requirement 10.3: pause_workflow should store state for later resume"""
         await hitl_manager.pause_workflow("sess_001", sample_state, "高风险干预")
-        
+
         session = hitl_manager.get_session("sess_001")
         assert session is not None
         assert session.state == sample_state
@@ -696,9 +695,9 @@ class TestRequirementValidation:
     ):
         """Requirement 10.4: resume_workflow should continue workflow on confirmation"""
         await hitl_manager.pause_workflow("sess_001", sample_state_with_report, "test")
-        
+
         result = await hitl_manager.resume_workflow("sess_001", confirmed=True)
-        
+
         assert result["ui_interrupt_flag"] is False
         assert result["final_report"].confirmation_status == ConfirmationStatus.CONFIRMED
 
@@ -713,15 +712,15 @@ class TestRequirementValidation:
     ):
         """Requirement 10.6: Should auto-terminate sessions after 30 minutes"""
         await hitl_manager.pause_workflow("sess_001", sample_state, "test")
-        
+
         # Simulate 31 minutes passed
         session = hitl_manager._paused_sessions["sess_001"]
-        session.paused_at = datetime.now(timezone.utc) - timedelta(minutes=31)
-        
+        session.paused_at = datetime.now(UTC) - timedelta(minutes=31)
+
         # Check timeout detection
         is_timeout = await hitl_manager.check_timeout("sess_001")
         assert is_timeout is True
-        
+
         # Cleanup should terminate the session
         terminated = await hitl_manager.cleanup_timeout_sessions()
         assert "sess_001" in terminated
@@ -741,13 +740,13 @@ class TestEdgeCases:
         """Pausing same session twice should overwrite"""
         state1 = dict(sample_state)
         state1["user_query"] = "query_1"
-        
+
         state2 = dict(sample_state)
         state2["user_query"] = "query_2"
-        
+
         await hitl_manager.pause_workflow("sess_001", state1, "reason_1")
         await hitl_manager.pause_workflow("sess_001", state2, "reason_2")
-        
+
         session = hitl_manager.get_session("sess_001")
         assert session.state["user_query"] == "query_2"
         assert session.reason == "reason_2"
@@ -756,11 +755,11 @@ class TestEdgeCases:
     async def test_resume_already_resumed_session(self, hitl_manager, sample_state):
         """Resuming already resumed session should return None"""
         await hitl_manager.pause_workflow("sess_001", sample_state, "test")
-        
+
         # First resume
         result1 = await hitl_manager.resume_workflow("sess_001", confirmed=True)
         assert result1 is not None
-        
+
         # Second resume should return None
         result2 = await hitl_manager.resume_workflow("sess_001", confirmed=True)
         assert result2 is None
@@ -769,7 +768,7 @@ class TestEdgeCases:
     async def test_state_not_mutated_during_pause(self, hitl_manager, sample_state):
         """State should not be mutated during pause period"""
         await hitl_manager.pause_workflow("sess_001", sample_state, "test")
-        
+
         # Get session and verify state integrity
         session = hitl_manager.get_session("sess_001")
         assert session.state["user_query"] == sample_state["user_query"]

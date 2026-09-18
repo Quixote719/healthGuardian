@@ -5,21 +5,21 @@ Tests for app/models/api.py
 Requirements: 13.2, 14.2
 """
 
+
 import pytest
-from datetime import datetime
 from pydantic import ValidationError
 
+from app.models.action_item import ActionCategory, ActionItem, Priority, RiskLevel
 from app.models.api import (
     ChatRequest,
     ChatResponse,
     ConfirmRequest,
     ConfirmResponse,
-    StatusEventData,
-    PauseEventData,
     ErrorEventData,
+    PauseEventData,
+    StatusEventData,
 )
-from app.models.action_item import ActionItem, ActionCategory, Priority, RiskLevel
-from app.models.final_report import FinalReport, ConfirmationStatus
+from app.models.final_report import ConfirmationStatus, FinalReport
 
 
 class TestChatRequest:

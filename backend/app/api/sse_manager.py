@@ -12,16 +12,17 @@ Requirements 13.3-13.9: 实现 Server-Sent Events 流式响应机制
 """
 
 import asyncio
+import contextlib
 import json
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, Field
 
 
-class SSEEventType(str, Enum):
+class SSEEventType(StrEnum):
     """SSE 事件类型枚举
 
     Requirement 13.4: 定义事件类型
@@ -302,10 +303,8 @@ class SSEManager:
             task = self._heartbeat_tasks.pop(session_id)
             if not task.done():
                 task.cancel()
-                try:
+                with contextlib.suppress(asyncio.CancelledError):
                     await task
-                except asyncio.CancelledError:
-                    pass
 
         # 清理事件队列
         if session_id in self._event_queues:

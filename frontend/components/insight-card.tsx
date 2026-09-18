@@ -1,6 +1,6 @@
 "use client";
 
-import * as React from "react";
+import type * as React from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -82,9 +82,7 @@ export function InsightCard({
           </h2>
         </CardHeader>
         <CardContent>
-          <p className="text-muted-foreground text-center py-4">
-            暂无分析内容
-          </p>
+          <p className="text-muted-foreground text-center py-4">暂无分析内容</p>
         </CardContent>
       </Card>
     );
@@ -117,51 +115,33 @@ export function InsightCard({
             components={{
               // h1-h4 标题样式 (Requirements 15.3)
               h1: ({ children, ...props }) => (
-                <h3
-                  className="text-lg font-bold mt-6 mb-3 text-foreground"
-                  {...props}
-                >
+                <h3 className="text-lg font-bold mt-6 mb-3 text-foreground" {...props}>
                   {children}
                 </h3>
               ),
               h2: ({ children, ...props }) => (
-                <h4
-                  className="text-base font-bold mt-5 mb-2 text-foreground"
-                  {...props}
-                >
+                <h4 className="text-base font-bold mt-5 mb-2 text-foreground" {...props}>
                   {children}
                 </h4>
               ),
               h3: ({ children, ...props }) => (
-                <h5
-                  className="text-sm font-semibold mt-4 mb-2 text-foreground"
-                  {...props}
-                >
+                <h5 className="text-sm font-semibold mt-4 mb-2 text-foreground" {...props}>
                   {children}
                 </h5>
               ),
               h4: ({ children, ...props }) => (
-                <h6
-                  className="text-sm font-medium mt-3 mb-1 text-foreground"
-                  {...props}
-                >
+                <h6 className="text-sm font-medium mt-3 mb-1 text-foreground" {...props}>
                   {children}
                 </h6>
               ),
               // 有序和无序列表 (Requirements 15.3)
               ul: ({ children, ...props }) => (
-                <ul
-                  className="list-disc list-inside my-2 space-y-1 text-foreground"
-                  {...props}
-                >
+                <ul className="list-disc list-inside my-2 space-y-1 text-foreground" {...props}>
                   {children}
                 </ul>
               ),
               ol: ({ children, ...props }) => (
-                <ol
-                  className="list-decimal list-inside my-2 space-y-1 text-foreground"
-                  {...props}
-                >
+                <ol className="list-decimal list-inside my-2 space-y-1 text-foreground" {...props}>
                   {children}
                 </ol>
               ),
@@ -208,19 +188,13 @@ export function InsightCard({
                 );
               },
               pre: ({ children, ...props }) => (
-                <pre
-                  className="bg-muted p-3 rounded-md overflow-x-auto my-3"
-                  {...props}
-                >
+                <pre className="bg-muted p-3 rounded-md overflow-x-auto my-3" {...props}>
                   {children}
                 </pre>
               ),
               // 段落样式，确保文本对比度 (Requirements 15.8)
               p: ({ children, ...props }) => (
-                <p
-                  className="text-sm leading-relaxed my-2 text-foreground"
-                  {...props}
-                >
+                <p className="text-sm leading-relaxed my-2 text-foreground" {...props}>
                   {children}
                 </p>
               ),
@@ -234,9 +208,7 @@ export function InsightCard({
                 </blockquote>
               ),
               // 分隔线
-              hr: (props) => (
-                <hr className="my-4 border-muted" {...props} />
-              ),
+              hr: (props) => <hr className="my-4 border-muted" {...props} />,
               // 链接
               a: ({ children, href, ...props }) => (
                 <a

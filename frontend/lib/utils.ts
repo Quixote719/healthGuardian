@@ -26,7 +26,7 @@ export function formatCountdown(seconds: number): string {
  * @returns 延迟时间（毫秒）
  */
 export function getExponentialBackoffDelay(attempt: number, baseDelay: number = 2000): number {
-  return baseDelay * Math.pow(2, attempt);
+  return baseDelay * 2 ** attempt;
 }
 
 /**

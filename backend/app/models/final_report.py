@@ -5,14 +5,14 @@ Requirements 3.1-3.8: 定义综合报告数据结构
 """
 
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
 from app.models.action_item import ActionItem
 
 
-class ConfirmationStatus(str, Enum):
+class ConfirmationStatus(StrEnum):
     """确认状态枚举
 
     用于 HITL (Human-in-the-Loop) 机制的确认状态追踪

@@ -1,20 +1,20 @@
 "use client";
 
 import * as React from "react";
+import { delay, getExponentialBackoffDelay } from "@/lib/utils";
 import type {
-  UseHealthChatOptions,
-  UseHealthChatReturn,
-  ChatMessage,
-  FinalReport,
   ActionItem,
+  ChatMessage,
   ConnectionStatus,
-  SSEEventType,
-  StatusEventData,
+  ErrorEventData,
+  FinalReport,
   IntermediateEventData,
   PauseEventData,
-  ErrorEventData,
+  SSEEventType,
+  StatusEventData,
+  UseHealthChatOptions,
+  UseHealthChatReturn,
 } from "@/types";
-import { getExponentialBackoffDelay, delay } from "@/lib/utils";
 
 /**
  * API 基础 URL
@@ -52,9 +52,12 @@ export function useHealthChat(options?: UseHealthChatOptions): UseHealthChatRetu
   const [finalReport, setFinalReport] = React.useState<FinalReport | null>(null);
 
   // 内部状态
-  const [currentSessionId, setCurrentSessionId] = React.useState<string | null>(null);
+  const [_currentSessionId, setCurrentSessionId] = React.useState<string | null>(null);
   const [retryCount, setRetryCount] = React.useState(0);
-  const [lastRequest, setLastRequest] = React.useState<{ content: string; userProfileId: string } | null>(null);
+  const [lastRequest, setLastRequest] = React.useState<{
+    content: string;
+    userProfileId: string;
+  } | null>(null);
 
   // HITL 暂停状态
   const [pausedSessionId, setPausedSessionId] = React.useState<string | null>(null);
@@ -115,7 +118,7 @@ export function useHealthChat(options?: UseHealthChatOptions): UseHealthChatRetu
           setFinalReport(report);
           setIsLoading(false);
           setCurrentPhase("");
-          
+
           // 添加 assistant 消息
           const assistantMessage: ChatMessage = {
             id: generateId(),
@@ -279,57 +282,54 @@ export function useHealthChat(options?: UseHealthChatOptions): UseHealthChatRetu
   /**
    * 提交 HITL 确认/拒绝 (Requirements 17.1)
    */
-  const confirmHITL = React.useCallback(
-    async (sessionId: string, confirmed: boolean) => {
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/confirm`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            session_id: sessionId,
-            confirmed,
-          }),
-        });
+  const confirmHITL = React.useCallback(async (sessionId: string, confirmed: boolean) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/confirm`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          session_id: sessionId,
+          confirmed,
+        }),
+      });
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-        }
-
-        const result = await response.json();
-
-        // 清除暂停状态
-        setPausedSessionId(null);
-        setPausedHighRiskItems([]);
-
-        if (result.status === "terminated" && result.partial_report) {
-          // 用户拒绝，显示部分报告
-          setFinalReport(result.partial_report);
-          setIsLoading(false);
-          setCurrentPhase("");
-
-          const assistantMessage: ChatMessage = {
-            id: generateId(),
-            role: "assistant",
-            content: result.partial_report.deep_insight,
-            createdAt: new Date(result.partial_report.created_at),
-            report: result.partial_report,
-          };
-          setMessages((prev) => [...prev, assistantMessage]);
-        } else if (result.status === "resumed") {
-          // 用户确认，工作流继续
-          setCurrentPhase("工作流已恢复，继续处理中...");
-        }
-      } catch (error) {
-        console.error("HITL confirm error:", error);
-        const err = error instanceof Error ? error : new Error("Unknown error");
-        onErrorRef.current?.(err);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
       }
-    },
-    []
-  );
+
+      const result = await response.json();
+
+      // 清除暂停状态
+      setPausedSessionId(null);
+      setPausedHighRiskItems([]);
+
+      if (result.status === "terminated" && result.partial_report) {
+        // 用户拒绝，显示部分报告
+        setFinalReport(result.partial_report);
+        setIsLoading(false);
+        setCurrentPhase("");
+
+        const assistantMessage: ChatMessage = {
+          id: generateId(),
+          role: "assistant",
+          content: result.partial_report.deep_insight,
+          createdAt: new Date(result.partial_report.created_at),
+          report: result.partial_report,
+        };
+        setMessages((prev) => [...prev, assistantMessage]);
+      } else if (result.status === "resumed") {
+        // 用户确认，工作流继续
+        setCurrentPhase("工作流已恢复，继续处理中...");
+      }
+    } catch (error) {
+      console.error("HITL confirm error:", error);
+      const err = error instanceof Error ? error : new Error("Unknown error");
+      onErrorRef.current?.(err);
+    }
+  }, []);
 
   /**
    * 手动重试 (Requirements 17.6)

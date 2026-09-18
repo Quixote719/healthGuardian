@@ -5,12 +5,12 @@ Requirements 2.1-2.9: 定义标准化的干预措施数据结构
 """
 
 import re
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, Field, field_validator
 
 
-class ActionCategory(str, Enum):
+class ActionCategory(StrEnum):
     """干预措施类别枚举"""
 
     NUTRITION = "营养"
@@ -18,7 +18,7 @@ class ActionCategory(str, Enum):
     NEUROPSYCHOLOGY = "神经心理"
 
 
-class Priority(str, Enum):
+class Priority(StrEnum):
     """优先级枚举"""
 
     HIGH = "高"
@@ -26,7 +26,7 @@ class Priority(str, Enum):
     LOW = "低"
 
 
-class RiskLevel(str, Enum):
+class RiskLevel(StrEnum):
     """风险等级枚举"""
 
     HIGH = "高风险"

@@ -1,8 +1,9 @@
 "use client";
 
+import { AlertTriangle, Loader2 } from "lucide-react";
 import * as React from "react";
-import { Loader2, AlertTriangle } from "lucide-react";
-
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -11,22 +12,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { cn, formatCountdown } from "@/lib/utils";
-import type {
-  HITLConfirmationDialogProps,
-  ActionItem,
-  ActionCategory,
-  CATEGORY_COLORS,
-} from "@/types";
+import type { ActionCategory, ActionItem, HITLConfirmationDialogProps } from "@/types";
 import { CATEGORY_ICONS } from "@/types";
 
 /**
  * 获取分类颜色配置
  */
 const getCategoryColors = (category: ActionCategory) => {
-  const colors: Record<ActionCategory, { bgClass: string; borderClass: string; textClass: string }> = {
+  const colors: Record<
+    ActionCategory,
+    { bgClass: string; borderClass: string; textClass: string }
+  > = {
     营养: {
       bgClass: "bg-green-100",
       borderClass: "border-green-500",
@@ -54,14 +51,7 @@ function HighRiskItem({ item }: { item: ActionItem }) {
   const icon = CATEGORY_ICONS[item.category];
 
   return (
-    <Card
-      className={cn(
-        "border-l-4",
-        colors.borderClass,
-        colors.bgClass,
-        "transition-colors"
-      )}
-    >
+    <Card className={cn("border-l-4", colors.borderClass, colors.bgClass, "transition-colors")}>
       <CardContent className="p-4">
         <div className="flex items-start gap-3">
           <span className="text-xl" aria-hidden="true">
@@ -83,9 +73,7 @@ function HighRiskItem({ item }: { item: ActionItem }) {
               </span>
             </div>
             <h4 className="font-semibold text-gray-900 mb-1">{item.title}</h4>
-            <p className="text-sm text-gray-600 line-clamp-2">
-              {item.description}
-            </p>
+            <p className="text-sm text-gray-600 line-clamp-2">{item.description}</p>
             <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
               <span>频率: {item.frequency}</span>
               <span>持续: {item.duration}</span>
@@ -104,7 +92,7 @@ function HighRiskItem({ item }: { item: ActionItem }) {
  */
 export function HITLConfirmationDialog({
   isOpen,
-  sessionId,
+  sessionId: _sessionId,
   highRiskItems,
   timeoutSeconds = 600,
   onConfirm,
@@ -118,7 +106,7 @@ export function HITLConfirmationDialog({
 
   // 引用确认按钮以便聚焦
   const confirmButtonRef = React.useRef<HTMLButtonElement>(null);
-  
+
   // 使用 ref 跟踪 onCancel 回调，避免闭包问题
   const onCancelRef = React.useRef(onCancel);
   React.useEffect(() => {
@@ -153,8 +141,10 @@ export function HITLConfirmationDialog({
   }, [isConfirming, isCancelling]);
 
   // 当弹窗打开时重置倒计时
+  // 这是一个有意的同步状态重置，用于响应 prop 变化重置组件内部状态
   React.useEffect(() => {
     if (isOpen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional state reset when dialog opens
       setRemainingSeconds(timeoutSeconds);
       setIsConfirming(false);
       setIsCancelling(false);
@@ -247,9 +237,7 @@ export function HITLConfirmationDialog({
         <div
           className={cn(
             "flex items-center justify-center gap-2 py-2 px-4 rounded-md text-sm font-medium",
-            isUrgent
-              ? "bg-red-100 text-red-800"
-              : "bg-amber-100 text-amber-800"
+            isUrgent ? "bg-red-100 text-red-800" : "bg-amber-100 text-amber-800"
           )}
           role="timer"
           aria-live="polite"
@@ -262,17 +250,15 @@ export function HITLConfirmationDialog({
 
         {/* 内容区域 - 高风险干预措施列表 (Requirements 18.2) */}
         <div className="flex-1 overflow-y-auto py-4 -mx-6 px-6">
-          <div className="space-y-3" role="list" aria-label="高风险干预措施列表">
+          <ul className="space-y-3" aria-label="高风险干预措施列表">
             {highRiskItems.map((item, index) => (
-              <div key={`${item.title}-${index}`} role="listitem">
+              <li key={`${item.title}-${index}`}>
                 <HighRiskItem item={item} />
-              </div>
+              </li>
             ))}
-          </div>
+          </ul>
           {highRiskItems.length === 0 && (
-            <p className="text-center text-gray-500 py-8">
-              暂无需要确认的高风险干预措施
-            </p>
+            <p className="text-center text-gray-500 py-8">暂无需要确认的高风险干预措施</p>
           )}
         </div>
 

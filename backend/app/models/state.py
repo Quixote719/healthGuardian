@@ -6,7 +6,7 @@ Requirements: 4.1-4.10
 """
 
 from datetime import UTC, datetime
-from enum import Enum
+from enum import StrEnum
 from typing import TYPE_CHECKING, Optional, TypedDict
 
 from pydantic import BaseModel, Field
@@ -21,7 +21,7 @@ def _utc_now() -> datetime:
     return datetime.now(UTC)
 
 
-class TargetAgent(str, Enum):
+class TargetAgent(StrEnum):
     """目标智能体枚举
 
     Requirement 4.3: target_agent 枚举值 "nutrition"/"rehabilitation"/"neuropsychology"
@@ -32,7 +32,7 @@ class TargetAgent(str, Enum):
     NEUROPSYCHOLOGY = "neuropsychology"
 
 
-class NodeExecutionStatus(str, Enum):
+class NodeExecutionStatus(StrEnum):
     """节点执行状态枚举
 
     Requirement 4.7: 节点执行状态 "pending"/"running"/"completed"/"failed"/"skipped"
